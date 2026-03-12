@@ -1,0 +1,9 @@
+.git
+.gitignore
+__pycache__/
+*.pyc
+docs/
+letsencrypt_data/
+console/node_modules/
+console/dist/
+console/.angular/

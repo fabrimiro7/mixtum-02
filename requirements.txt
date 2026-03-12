@@ -1,0 +1,50 @@
+# Core
+Django==5.1.7
+gunicorn>=21.2
+whitenoise>=6.6
+watchdog
+
+# DB & HTTP
+psycopg2-binary>=2.9,<3
+requests>=2.31
+httpx>=0.27
+django-cors-headers>=4.5,<5
+
+# REST
+djangorestframework>=3.15,<3.16
+django-filter>=24,<25
+
+# JWT
+PyJWT[crypto]>=2.8,<3
+cryptography>=42
+
+# Celery & Redis
+celery>=5.3,<6
+redis>=5,<6
+django-celery-beat>=2.6,<3
+django-celery-results>=2.5,<3
+flower>=2.0
+
+# Auth (Allauth + OIDC)
+django-allauth>=65
+mozilla-django-oidc>=4,<5
+
+# Env helper (optional)
+python-dotenv>=1.0
+
+# Storage (S3)
+django-storages[boto3]>=1.14.3
+boto3>=1.34
+
+# Images
+Pillow>=10,<12
+
+# Streaming WebSocket
+websocket-client>=1.6.1
+
+# Template rendering (documents plugin)
+Jinja2>=3.1,<4
+# SEO crawler
+beautifulsoup4>=4.12
+# Twilio (WhatsApp API)
+twilio>=9.0,<10

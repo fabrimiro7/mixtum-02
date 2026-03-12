@@ -1,0 +1,86 @@
+map $http_upgrade $connection_upgrade { default upgrade; '' close; }
+
+limit_req_zone $binary_remote_addr zone=webhook:10m rate=30r/m;
+limit_req_zone $binary_remote_addr zone=general:10m rate=200r/m;
+
+server {
+  listen 80;
+  server_name ${SERVER_NAME};
+
+  location /.well-known/acme-challenge/ {
+    root /var/www/certbot;
+    try_files $uri =404;
+  }
+
+  location / {
+    return 301 https://$host$request_uri;
+  }
+}
+
+server {
+  listen 443 ssl;
+  http2 on;
+  server_name ${SERVER_NAME};
+
+  client_max_body_size 2M;
+
+  ssl_certificate     /etc/letsencrypt/live/${SERVER_NAME}/fullchain.pem;
+  ssl_certificate_key /etc/letsencrypt/live/${SERVER_NAME}/privkey.pem;
+  ssl_session_timeout 1d;
+  ssl_protocols TLSv1.2 TLSv1.3;
+  ssl_ciphers HIGH:!aNULL:!MD5;
+  ssl_prefer_server_ciphers on;
+
+  proxy_connect_timeout 10s;
+  proxy_read_timeout    30s;
+  proxy_send_timeout    30s;
+
+  add_header X-Content-Type-Options  "nosniff"         always;
+  add_header X-Frame-Options         "SAMEORIGIN"      always;
+  add_header X-XSS-Protection        "1; mode=block"   always;
+  add_header Referrer-Policy         "strict-origin"   always;
+
+  resolver 127.0.0.11 ipv6=off valid=10s;
+  resolver_timeout 5s;
+
+  location = / { return 301 https://$host/admin/; }
+
+  location /api/submissions/process-pending/ {
+    deny all;
+  }
+
+  location /api/submissions/ {
+    limit_req zone=webhook burst=10 nodelay;
+    limit_req_status 429;
+
+    proxy_pass http://web:8000;
+    proxy_set_header Host               $host;
+    proxy_set_header X-Forwarded-Proto  $scheme;
+    proxy_set_header X-Forwarded-For    $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Host   $host;
+  }
+
+  location /admin/ {
+    # allow 1.2.3.4;
+    # deny all;
+    limit_req zone=general burst=20 nodelay;
+
+    proxy_pass http://web:8000;
+    proxy_set_header Host               $host;
+    proxy_set_header X-Forwarded-Proto  $scheme;
+    proxy_set_header X-Forwarded-For    $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Host   $host;
+  }
+
+  location / {
+    limit_req zone=general burst=50 nodelay;
+
+    proxy_pass http://web:8000;
+    proxy_set_header Host               $host;
+    proxy_set_header X-Forwarded-Proto  $scheme;
+    proxy_set_header X-Forwarded-For    $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Host   $host;
+    proxy_set_header Upgrade            $http_upgrade;
+    proxy_set_header Connection         $connection_upgrade;
+  }
+}

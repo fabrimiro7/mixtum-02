@@ -1,0 +1,26 @@
+# Sviluppo locale: porte esposte, volumi per hot-reload.
+# Usato da: make dev, make dev-d, setup.sh
+# Combinato con: docker-compose.yml + docker-compose.override.yml
+
+services:
+  web:
+    ports:
+      - "8000:8000"
+    volumes:
+      - ../:/app
+
+  worker:
+    volumes:
+      - ../:/app
+
+  beat:
+    volumes:
+      - ../:/app
+
+  db:
+    ports:
+      - "5432:5432"
+
+  redis:
+    ports:
+      - "6379:6379"

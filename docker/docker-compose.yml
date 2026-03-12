@@ -1,0 +1,122 @@
+services:
+  web:
+    build: ..
+    env_file: [../.env]
+    command: ["web"]
+    volumes: [../:/app]
+    expose: ["8000"]
+    depends_on: [db, redis]
+    environment:
+      DJANGO_SETTINGS_MODULE: mixtum_core.settings
+    restart: unless-stopped
+
+  worker:
+    build: ..
+    env_file: [../.env]
+    command: ["worker"]
+    depends_on: [db, redis]
+    volumes: [../:/app]
+    restart: unless-stopped
+
+  beat:
+    build: ..
+    env_file: [../.env]
+    command: ["beat"]
+    depends_on: [db, redis]
+    volumes: [../:/app]
+    restart: unless-stopped
+
+  nginx:
+    image: nginx:alpine
+    container_name: app-nginx-backend
+    profiles: ["backend"]
+    depends_on:
+      - web
+    ports:
+      - "80:80"
+      - "443:443"
+    restart: unless-stopped
+
+  nginx_console:
+    build:
+      context: ..
+      dockerfile: nginx/Dockerfile
+    container_name: app-nginx-console
+    profiles: ["frontend"]
+    depends_on:
+      - web
+    ports:
+      - "80:80"
+      - "443:443"
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-mixtumdb}
+      POSTGRES_USER: ${POSTGRES_USER:-mixtumuser}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-mixtumpassword}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    restart: unless-stopped
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:latest
+    profiles: ["oidc"]
+    environment:
+      KEYCLOAK_ADMIN: ${KEYCLOAK_ADMIN:-admin}
+      KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:-admin}
+    command: ["start-dev"]
+    ports: ["8080:8080"]
+    restart: unless-stopped
+
+  # -------------------------
+  # Metabase + DB dedicato
+  # -------------------------
+  metabase:
+    profiles: ["metabase"]
+    image: metabase/metabase:latest
+    depends_on:
+      - metabase_db
+      - db
+    environment:
+      MB_DB_TYPE: postgres
+      MB_DB_DBNAME: metabase
+      MB_DB_PORT: 5432
+      MB_DB_USER: metabase
+      MB_DB_PASS: metabase_password
+      MB_DB_HOST: metabase_db
+
+      # Reverse proxy config
+      MB_SITE_URL: "https://${SERVER_NAME}/metabase"
+      MB_SITE_LOCALE: "it"
+
+      # Tuning prudente per macchine piccole
+      JAVA_TOOL_OPTIONS: "-Xms256m -Xmx768m"
+    expose:
+      - "3000"
+    restart: unless-stopped
+
+  metabase_db:
+    profiles: ["metabase"]
+    image: postgres:16-alpine
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 1g
+    environment:
+      POSTGRES_DB: metabase
+      POSTGRES_USER: metabase
+      POSTGRES_PASSWORD: metabase_password
+    volumes:
+      - metabase_data:/var/lib/postgresql/data
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  metabase_data:
