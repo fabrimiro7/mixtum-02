@@ -12,12 +12,12 @@ setup:
 # ─────────────────────────────────────────
 
 dev:
-	docker compose -f docker/docker-compose.yml \
+	docker compose --env-file .env -f docker/docker-compose.yml \
 	               -f docker/docker-compose.local.yml \
 	               -f docker/docker-compose.override.yml up
 
 dev-d:
-	docker compose -f docker/docker-compose.yml \
+	docker compose --env-file .env -f docker/docker-compose.yml \
 	               -f docker/docker-compose.local.yml \
 	               -f docker/docker-compose.override.yml up -d
 
@@ -26,7 +26,7 @@ dev-d:
 # ─────────────────────────────────────────
 
 prod:
-	docker compose -f docker/docker-compose.yml \
+	docker compose --env-file .env -f docker/docker-compose.yml \
 	               -f docker/docker-compose.prod.yml up -d
 
 # ─────────────────────────────────────────
@@ -34,27 +34,27 @@ prod:
 # ─────────────────────────────────────────
 
 stop:
-	docker compose -f docker/docker-compose.yml \
+	docker compose --env-file .env -f docker/docker-compose.yml \
 	              -f docker/docker-compose.local.yml \
 	              -f docker/docker-compose.override.yml down
 
 migrate:
-	docker compose -f docker/docker-compose.yml \
+	docker compose --env-file .env -f docker/docker-compose.yml \
 	              -f docker/docker-compose.local.yml \
 	              -f docker/docker-compose.override.yml exec web python manage.py migrate
 
 shell:
-	docker compose -f docker/docker-compose.yml \
+	docker compose --env-file .env -f docker/docker-compose.yml \
 	              -f docker/docker-compose.local.yml \
 	              -f docker/docker-compose.override.yml exec web python manage.py shell
 
 logs:
-	docker compose -f docker/docker-compose.yml \
+	docker compose --env-file .env -f docker/docker-compose.yml \
 	              -f docker/docker-compose.local.yml \
 	              -f docker/docker-compose.override.yml logs -f web worker
 
 restart:
-	docker compose -f docker/docker-compose.yml \
+	docker compose --env-file .env -f docker/docker-compose.yml \
 	              -f docker/docker-compose.local.yml \
 	              -f docker/docker-compose.override.yml restart web worker beat
 
@@ -72,7 +72,7 @@ update-mixtum:
 	@read -p "Vuoi procedere con l'aggiornamento? (y/n) " CONFIRM; \
 	if [ "$$CONFIRM" = "y" ]; then \
 	    git checkout mixtum/main -- base_modules/ mixtum_core/ scripts/ nginx/ certbot/ Dockerfile docker/ .env.example; \
-	    docker compose -f docker/docker-compose.yml \
+	    docker compose --env-file .env -f docker/docker-compose.yml \
 	                   -f docker/docker-compose.local.yml \
 	                   run --rm web python manage.py migrate; \
 	    echo ""; \

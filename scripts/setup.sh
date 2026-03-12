@@ -72,12 +72,16 @@ else
     echo "✓ File .env già presente"
 fi
 
+# Compose deve leggere .env dalla root per POSTGRES_PASSWORD (project dir è docker/)
+COMPOSE_ENV=""
+[ -f "$ROOT_DIR/.env" ] && COMPOSE_ENV="--env-file $ROOT_DIR/.env"
+
 # ─────────────────────────────────────────
 # 4. Docker build
 # ─────────────────────────────────────────
 echo ""
 echo "⏳ Build Docker in corso..."
-docker compose $COMPOSE_FILES build
+docker compose $COMPOSE_ENV $COMPOSE_FILES build
 echo "✓ Build completata"
 
 # ─────────────────────────────────────────
@@ -85,10 +89,10 @@ echo "✓ Build completata"
 # ─────────────────────────────────────────
 echo ""
 echo "⏳ Avvio database e Redis..."
-docker compose $COMPOSE_FILES up -d db redis
+docker compose $COMPOSE_ENV $COMPOSE_FILES up -d db redis
 
 echo "⏳ Attendo che il database sia pronto..."
-until docker compose $COMPOSE_FILES exec -T db pg_isready -U "${POSTGRES_USER:-mixtumuser}" > /dev/null 2>&1; do
+until docker compose $COMPOSE_ENV $COMPOSE_FILES exec -T db pg_isready -U "${POSTGRES_USER:-mixtumuser}" > /dev/null 2>&1; do
     sleep 1
 done
 echo "✓ Database pronto"
@@ -98,7 +102,7 @@ echo "✓ Database pronto"
 # ─────────────────────────────────────────
 echo ""
 echo "⏳ Esecuzione migrations..."
-docker compose $COMPOSE_FILES run --rm web python manage.py migrate
+docker compose $COMPOSE_ENV $COMPOSE_FILES run --rm web python manage.py migrate
 echo "✓ Migrations completate"
 
 # ─────────────────────────────────────────
@@ -122,7 +126,7 @@ fi
 echo ""
 read -p "Vuoi creare un superuser admin? (y/n) " CREATE_SUPER
 if [ "$CREATE_SUPER" = "y" ]; then
-    docker compose $COMPOSE_FILES run --rm web python manage.py createsuperuser
+    docker compose $COMPOSE_ENV $COMPOSE_FILES run --rm web python manage.py createsuperuser
 fi
 
 # ─────────────────────────────────────────
@@ -130,7 +134,7 @@ fi
 # ─────────────────────────────────────────
 echo ""
 echo "⏳ Avvio completo del progetto..."
-docker compose $COMPOSE_FILES up -d
+docker compose $COMPOSE_ENV $COMPOSE_FILES up -d
 
 echo ""
 echo "✅ Setup completato!"
