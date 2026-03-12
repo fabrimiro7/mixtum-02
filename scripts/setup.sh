@@ -76,6 +76,9 @@ fi
 COMPOSE_ENV=""
 [ -f "$ROOT_DIR/.env" ] && COMPOSE_ENV="--env-file $ROOT_DIR/.env"
 
+# Project name = nome cartella, così ogni clone ha i propri container e volumi
+export COMPOSE_PROJECT_NAME="$(basename "$ROOT_DIR")"
+
 # ─────────────────────────────────────────
 # 4. Docker build
 # ─────────────────────────────────────────
