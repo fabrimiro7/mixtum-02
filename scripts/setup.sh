@@ -94,13 +94,15 @@ docker compose $COMPOSE_FILES run --rm web python manage.py migrate
 echo "✓ Migrations completate"
 
 # ─────────────────────────────────────────
-# 6b. Struttura progetto (project_core) opzionale
+# 6b. Struttura progetto ({nome}_core) opzionale
 # ─────────────────────────────────────────
 echo ""
-read -p "Creare struttura progetto (project_core) per estendere Mixtum? (y/n) " CREATE_PROJECT
+read -p "Creare struttura progetto per estendere Mixtum? (y/n) " CREATE_PROJECT
 if [[ "$CREATE_PROJECT" = "y" || "$CREATE_PROJECT" = "Y" ]]; then
+    read -p "Nome del progetto (es. fiscally, ed_ticket) [project]: " PROJECT_NAME
+    PROJECT_NAME="${PROJECT_NAME:-project}"
     if [[ -f scripts/create-project.sh ]]; then
-        bash scripts/create-project.sh
+        bash scripts/create-project.sh "$PROJECT_NAME"
     else
         echo "⚠️  scripts/create-project.sh non trovato, skip."
     fi

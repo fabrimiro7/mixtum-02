@@ -1,30 +1,45 @@
 #!/usr/bin/env bash
-# Crea la struttura project_core per estendere Mixtum (progetto derivato).
+# Crea la struttura {nome}_core per estendere Mixtum (progetto derivato).
+# Uso: create-project.sh [nome_progetto]   (default: project → project_core)
 # Non sovrascrive file esistenti.
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT_DIR"
 
-PROJECT_CORE_BASE="${ROOT_DIR}/project_core/settings/base.py"
+# Nome progetto: primo argomento o default "project"
+RAW_NAME="${1:-project}"
+
+# Normalizza a identificatore Python valido: minuscolo, solo [a-z0-9_]
+NORMALIZED=$(echo "$RAW_NAME" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9_]/_/g' | sed 's/__*/_/g' | sed 's/^_//;s/_$//')
+
+# Se vuoto o non valido dopo normalizzazione, usa "project"
+if [[ -z "$NORMALIZED" ]] || [[ "$NORMALIZED" =~ ^[^a-z] ]]; then
+    echo "Nome non valido o vuoto, uso 'project'."
+    NORMALIZED="project"
+fi
+
+CORE_NAME="${NORMALIZED}_core"
+
+PROJECT_CORE_BASE="${ROOT_DIR}/${CORE_NAME}/settings/base.py"
 
 if [[ -f "$PROJECT_CORE_BASE" ]]; then
-  echo "project_core già presente, skip."
+  echo "${CORE_NAME} già presente, skip."
   exit 0
 fi
 
-echo "Creazione struttura project_core..."
+echo "Creazione struttura ${CORE_NAME}..."
 
-mkdir -p project_core
-mkdir -p project_core/settings/envs
+mkdir -p "${CORE_NAME}"
+mkdir -p "${CORE_NAME}/settings/envs"
 
-# project_core/__init__.py
-if [[ ! -f project_core/__init__.py ]]; then
-  touch project_core/__init__.py
+# ${CORE_NAME}/__init__.py
+if [[ ! -f "${CORE_NAME}/__init__.py" ]]; then
+  touch "${CORE_NAME}/__init__.py"
 fi
 
-# project_core/settings/base.py
-cat > project_core/settings/base.py << 'PYEOF'
+# ${CORE_NAME}/settings/base.py
+cat > "${CORE_NAME}/settings/base.py" << 'PYEOF'
 # Estende Mixtum — non modificare i file in mixtum_core.
 # Aggiungi qui le app e gli override del progetto.
 from mixtum_core.settings import *
@@ -36,8 +51,8 @@ INSTALLED_APPS += [
 ]
 PYEOF
 
-# project_core/settings/__init__.py
-cat > project_core/settings/__init__.py << 'PYEOF'
+# ${CORE_NAME}/settings/__init__.py
+cat > "${CORE_NAME}/settings/__init__.py" << 'PYEOF'
 """
 Settings progetto derivato: carica Mixtum + base progetto, poi overlay env.
 """
@@ -52,11 +67,11 @@ else:
     from .envs.local import *
 PYEOF
 
-# project_core/settings/envs/local.py
-cat > project_core/settings/envs/local.py << 'PYEOF'
+# ${CORE_NAME}/settings/envs/local.py (heredoc senza quote per espandere CORE_NAME)
+cat > "${CORE_NAME}/settings/envs/local.py" << PYEOF
 # Overlay sviluppo locale
 import os
-from project_core.settings.base import *
+from ${CORE_NAME}.settings.base import *
 
 DEBUG = True
 ALLOWED_HOSTS = ["*"]
@@ -74,11 +89,11 @@ DATABASES = {
 }
 PYEOF
 
-# project_core/settings/envs/production.py
-cat > project_core/settings/envs/production.py << 'PYEOF'
+# ${CORE_NAME}/settings/envs/production.py (heredoc senza quote per espandere CORE_NAME)
+cat > "${CORE_NAME}/settings/envs/production.py" << PYEOF
 # Overlay produzione
 import os
-from project_core.settings.base import *
+from ${CORE_NAME}.settings.base import *
 
 DEBUG = False
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
@@ -99,13 +114,13 @@ DATABASES = {
 }
 PYEOF
 
-# project_core/settings/envs/__init__.py (per import envs)
-if [[ ! -f project_core/settings/envs/__init__.py ]]; then
-  touch project_core/settings/envs/__init__.py
+# ${CORE_NAME}/settings/envs/__init__.py (per import envs)
+if [[ ! -f "${CORE_NAME}/settings/envs/__init__.py" ]]; then
+  touch "${CORE_NAME}/settings/envs/__init__.py"
 fi
 
-# project_core/urls.py
-cat > project_core/urls.py << 'PYEOF'
+# ${CORE_NAME}/urls.py
+cat > "${CORE_NAME}/urls.py" << 'PYEOF'
 # Estende le url di Mixtum; aggiungi qui le url dei plugin del progetto.
 from django.urls import path, include
 from mixtum_core.urls import urlpatterns as mixtum_urls
@@ -115,11 +130,11 @@ urlpatterns = mixtum_urls + [
 ]
 PYEOF
 
-echo "Struttura project_core creata."
+echo "Struttura ${CORE_NAME} creata."
 echo ""
 echo "Per usare il progetto derivato:"
-echo "  1. In .env imposta: DJANGO_SETTINGS_MODULE=project_core.settings.envs.local"
-echo "  2. In produzione:   DJANGO_SETTINGS_MODULE=project_core.settings.envs.production"
-echo "  3. Aggiungi le app in project_core/settings/base.py (INSTALLED_APPS += ...)"
-echo "  4. Aggiungi le url in project_core/urls.py (urlpatterns = mixtum_urls + [...])"
+echo "  1. In .env imposta: DJANGO_SETTINGS_MODULE=${CORE_NAME}.settings.envs.local"
+echo "  2. In produzione:   DJANGO_SETTINGS_MODULE=${CORE_NAME}.settings.envs.production"
+echo "  3. Aggiungi le app in ${CORE_NAME}/settings/base.py (INSTALLED_APPS += ...)"
+echo "  4. Aggiungi le url in ${CORE_NAME}/urls.py (urlpatterns = mixtum_urls + [...])"
 echo ""
