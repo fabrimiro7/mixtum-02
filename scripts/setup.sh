@@ -22,6 +22,14 @@ if [[ "$SETUP_ENV" != "local" && "$SETUP_ENV" != "prod" ]]; then
 fi
 
 if [[ "$SETUP_ENV" = "local" ]]; then
+    OVERRIDE_FILE="docker/docker-compose.override.yml"
+    if [ ! -f "$OVERRIDE_FILE" ]; then
+        echo "ℹ️  Nessun $OVERRIDE_FILE trovato, ne creo uno di default..."
+        cat > "$OVERRIDE_FILE" <<'EOF'
+# docker-compose override locale (generato da scripts/setup.sh)
+# Aggiungi qui volumi, porte, ecc. specifici del tuo ambiente.
+EOF
+    fi
     COMPOSE_FILES="-f docker/docker-compose.yml -f docker/docker-compose.local.yml -f docker/docker-compose.override.yml"
     echo "✓ Modalità locale (docker-compose + local + override)"
 else
