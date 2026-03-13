@@ -46,6 +46,11 @@ migrate:
 	              -f docker/docker-compose.local.yml \
 	              -f docker/docker-compose.override.yml exec web python manage.py migrate
 
+makemigrations:
+	docker compose -p $(COMPOSE_PROJECT_NAME) --env-file .env -f docker/docker-compose.yml \
+	              -f docker/docker-compose.local.yml \
+	              -f docker/docker-compose.override.yml exec web python manage.py makemigrations
+
 shell:
 	docker compose -p $(COMPOSE_PROJECT_NAME) --env-file .env -f docker/docker-compose.yml \
 	              -f docker/docker-compose.local.yml \
