@@ -1,4 +1,4 @@
-.PHONY: setup dev dev-d prod stop update-mixtum migrate shell logs restart rebuild
+.PHONY: setup dev dev-d prod stop update-mixtum migrate shell logs restart rebuild hard-rebuild
 
 # Project name = nome cartella, così ogni clone ha i propri container e volumi
 COMPOSE_PROJECT_NAME := $(shell basename $(CURDIR))
@@ -62,16 +62,55 @@ restart:
 	              -f docker/docker-compose.override.yml restart web worker beat
 
 # ─────────────────────────────────────────
-# REBUILD COMPLETO (containers + volumi + setup)
+# REBUILD COMPLETO (non interattivo, NON cancella volumi)
+# - Ferma e ricrea i container mantenendo i volumi (DB, Redis, file, ecc.)
+# - Re-build immagini (nuovi requirements)
+# - Applica migrations
+# - Riavvia stack locale
 # ─────────────────────────────────────────
 
 rebuild:
-	# Ferma e rimuove TUTTI i container + volumi del progetto corrente
+	# Ferma e rimuove i container del progetto corrente (mantiene i volumi)
 	docker compose -p $(COMPOSE_PROJECT_NAME) --env-file .env -f docker/docker-compose.yml \
 	               -f docker/docker-compose.local.yml \
-	               -f docker/docker-compose.override.yml down -v
-	# Ricostruisce immagini, riesegue le migrations e riavvia tutto
-	bash scripts/setup.sh
+	               -f docker/docker-compose.override.yml down
+	# Rebuild immagini (include nuovi requirements nel Dockerfile)
+	docker compose -p $(COMPOSE_PROJECT_NAME) --env-file .env -f docker/docker-compose.yml \
+	               -f docker/docker-compose.local.yml \
+	               -f docker/docker-compose.override.yml build
+	# Avvia servizi (web, worker, beat, db, redis, ecc.)
+	docker compose -p $(COMPOSE_PROJECT_NAME) --env-file .env -f docker/docker-compose.yml \
+	               -f docker/docker-compose.local.yml \
+	               -f docker/docker-compose.override.yml up -d
+	# Applica migrations sul container web già avviato
+	docker compose -p $(COMPOSE_PROJECT_NAME) --env-file .env -f docker/docker-compose.yml \
+	               -f docker/docker-compose.local.yml \
+	               -f docker/docker-compose.override.yml exec web python manage.py migrate
+
+# ─────────────────────────────────────────
+# HARD REBUILD (cancella ANCHE i volumi - DB compreso)
+# Richiede conferma esplicita.
+# ─────────────────────────────────────────
+
+hard-rebuild:
+	@echo "⚠ ATTENZIONE: questo comando esegue 'docker compose down -v' e CANCELLA anche i volumi (database, redis, ecc.)."
+	@read -p "Sei sicuro di voler procedere? (yes/N): " CONFIRM; \
+	if [ "$$CONFIRM" = "yes" ]; then \
+	  docker compose -p $(COMPOSE_PROJECT_NAME) --env-file .env -f docker/docker-compose.yml \
+	                 -f docker/docker-compose.local.yml \
+	                 -f docker/docker-compose.override.yml down -v; \
+	  docker compose -p $(COMPOSE_PROJECT_NAME) --env-file .env -f docker/docker-compose.yml \
+	                 -f docker/docker-compose.local.yml \
+	                 -f docker/docker-compose.override.yml build; \
+	  docker compose -p $(COMPOSE_PROJECT_NAME) --env-file .env -f docker/docker-compose.yml \
+	                 -f docker/docker-compose.local.yml \
+	                 -f docker/docker-compose.override.yml up -d; \
+	  docker compose -p $(COMPOSE_PROJECT_NAME) --env-file .env -f docker/docker-compose.yml \
+	                 -f docker/docker-compose.local.yml \
+	                 -f docker/docker-compose.override.yml exec web python manage.py migrate; \
+	else \
+	  echo "Hard rebuild annullato."; \
+	fi
 
 # ─────────────────────────────────────────
 # AGGIORNAMENTO DA MIXTUM
