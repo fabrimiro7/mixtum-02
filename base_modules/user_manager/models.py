@@ -76,7 +76,7 @@ class User(AbstractBaseUser, PermissionsMixin):
 
     # Permissions
     permission = models.PositiveSmallIntegerField(verbose_name="User permission level",
-                                                  default=1, choices=USER_LEVEL)
+                                                  default=10, choices=USER_LEVEL)
     user_type = models.CharField(max_length=30, choices=USER_TYPE_CHOICES, default="Persona Fisica")
 
     # Profile fields
