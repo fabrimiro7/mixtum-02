@@ -176,9 +176,13 @@ class HeadlessSignupWrapperView(APIView):
                 {"detail": "Headless signup only when AUTH_MODE=django."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
+        # Normalize payload: use email as username when username is missing (frontend may send only email/password)
+        data = dict(request.data) if request.data else {}
+        if not data.get("username") and data.get("email"):
+            data["username"] = data["email"]
         try:
             path = "/api/v1/accounts/_allauth/app/v1/auth/signup"
-            internal_req = _copy_request_for_allauth(request, path, request.data)
+            internal_req = _copy_request_for_allauth(request, path, data)
             match = resolve(path)
             signup_view = match.func
             auth_response = signup_view(internal_req)
