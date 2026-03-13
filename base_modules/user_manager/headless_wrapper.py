@@ -156,3 +156,64 @@ class HeadlessRefreshWrapperView(APIView):
         else:
             _set_refresh_cookie(out, refresh_token)
         return out
+
+
+class HeadlessSignupWrapperView(APIView):
+    """
+    Wrapper: proxy POST to allauth headless auth/signup.
+
+    - In caso di flusso con verifica email obbligatoria restituisce lo stesso payload/status
+      di allauth (tipicamente 200/201 + flows.verify_email.is_pending) senza settare cookie.
+    - Se, in configurazioni particolari, allauth restituisce anche access/refresh token,
+      normalizza la risposta come il login wrapper e imposta il refresh token in cookie httpOnly.
+    """
+    permission_classes = [AllowAny]
+    authentication_classes = []
+
+    def post(self, request):
+        if getattr(settings, "AUTH_MODE", "django") != "django":
+            return Response(
+                {"detail": "Headless signup only when AUTH_MODE=django."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        try:
+            path = "/api/v1/accounts/_allauth/app/v1/auth/signup"
+            internal_req = _copy_request_for_allauth(request, path, request.data)
+            match = resolve(path)
+            signup_view = match.func
+            auth_response = signup_view(internal_req)
+        except (Resolver404, Exception) as e:
+            return Response(
+                {"detail": "Signup failed.", "error": str(e)},
+                status=status.HTTP_502_BAD_GATEWAY,
+            )
+
+        status_code = auth_response.status_code
+        try:
+            payload = auth_response.json() if hasattr(auth_response, "json") else json.loads(auth_response.content)
+        except Exception:
+            return Response({"detail": "Invalid response"}, status=status.HTTP_502_BAD_GATEWAY)
+
+        # Se allauth non ha ancora emesso token (tipico con email_verification mandatory),
+        # inoltra semplicemente payload e status al frontend che leggerà i flows.
+        meta = payload.get("meta") or {}
+        access_token = meta.get("access_token")
+        refresh_token = meta.get("refresh_token")
+
+        if not access_token:
+            return Response(payload, status=status_code)
+
+        # Caso in cui signup autentica subito: normalizza come login wrapper
+        out = Response(
+            {
+                "token": access_token,
+                "access_token": access_token,
+                "expires_in": getattr(settings, "HEADLESS_JWT_ACCESS_TOKEN_EXPIRES_IN", 900),
+                "data": payload.get("data"),
+                "message": "success",
+            },
+            status=status.HTTP_200_OK,
+        )
+        if refresh_token:
+            _set_refresh_cookie(out, refresh_token)
+        return out
