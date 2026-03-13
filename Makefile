@@ -1,4 +1,4 @@
-.PHONY: setup dev dev-d prod stop update-mixtum migrate shell logs restart
+.PHONY: setup dev dev-d prod stop update-mixtum migrate shell logs restart rebuild
 
 # Project name = nome cartella, così ogni clone ha i propri container e volumi
 COMPOSE_PROJECT_NAME := $(shell basename $(CURDIR))
@@ -60,6 +60,18 @@ restart:
 	docker compose -p $(COMPOSE_PROJECT_NAME) --env-file .env -f docker/docker-compose.yml \
 	              -f docker/docker-compose.local.yml \
 	              -f docker/docker-compose.override.yml restart web worker beat
+
+# ─────────────────────────────────────────
+# REBUILD COMPLETO (containers + volumi + setup)
+# ─────────────────────────────────────────
+
+rebuild:
+	# Ferma e rimuove TUTTI i container + volumi del progetto corrente
+	docker compose -p $(COMPOSE_PROJECT_NAME) --env-file .env -f docker/docker-compose.yml \
+	               -f docker/docker-compose.local.yml \
+	               -f docker/docker-compose.override.yml down -v
+	# Ricostruisce immagini, riesegue le migrations e riavvia tutto
+	bash scripts/setup.sh
 
 # ─────────────────────────────────────────
 # AGGIORNAMENTO DA MIXTUM

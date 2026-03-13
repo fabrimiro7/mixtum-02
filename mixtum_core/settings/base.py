@@ -41,6 +41,7 @@ INSTALLED_APPS = [
     "django_celery_beat",
     "allauth",
     "allauth.account",
+    "allauth.headless",
     "allauth.socialaccount",
     "allauth.socialaccount.providers.google",
     "corsheaders",

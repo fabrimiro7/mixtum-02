@@ -26,7 +26,7 @@ django-celery-results>=2.5,<3
 flower>=2.0
 
 # Auth (Allauth + OIDC)
-django-allauth>=65
+django-allauth[headless]>=65
 mozilla-django-oidc>=4,<5
 
 # Env helper (optional)

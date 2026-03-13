@@ -26,8 +26,10 @@ urlpatterns = [
     # Celery Flower
     path("flower-auth/", flower_auth, name="flower-auth"),
 
-    # Auth and Users
+    # Auth and Users (wrapper first so /auth/login and /auth/refresh are ours)
+    path('api/v1/accounts/auth/', include('base_modules.user_manager.headless_wrapper_urls')),
     path('api/v1/accounts/', include('allauth.urls')),
+    path('api/v1/accounts/_allauth/', include('allauth.headless.urls')),
     path('api/v1/users/', include('base_modules.user_manager.urls')),
 
     # Attachments
