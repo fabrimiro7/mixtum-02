@@ -2,6 +2,9 @@ import os
 
 AUTH_USER_MODEL = "user_manager.User"
 
+# Allauth emails go through base_modules.mailer (tracking, same SMTP pipeline)
+ACCOUNT_ADAPTER = "base_modules.user_manager.adapter.MailerAccountAdapter"
+
 AUTH_MODE = os.getenv("AUTH_MODE", "django").lower()  # "django" | "keycloak"
 
 AUTHENTICATION_BACKENDS = (
