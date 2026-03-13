@@ -4,6 +4,8 @@ in httpOnly cookie; return only access token in body (Opzione B - enterprise).
 """
 import json
 import os
+from types import SimpleNamespace
+
 from django.conf import settings
 from django.http import HttpRequest, JsonResponse
 from django.urls import resolve, Resolver404
@@ -39,11 +41,19 @@ def _clear_refresh_cookie(response: Response) -> None:
 def _copy_request_for_allauth(original: HttpRequest, path: str, body: dict) -> HttpRequest:
     """Build a new request with the given path and JSON body for calling allauth headless."""
     from django.test import RequestFactory
+
     factory = RequestFactory()
     body_bytes = json.dumps(body).encode("utf-8") if body else b""
     req = factory.post(path, body_bytes, content_type="application/json")
+
+    # Propaga sessione/utente dalla richiesta originale
     req.session = original.session
     req.user = original.user
+
+    # Simula AccountMiddleware: allauth.headless si aspetta request.allauth
+    # per poter impostare request.allauth.headless.*
+    req.allauth = SimpleNamespace()
+
     return req
 
 
