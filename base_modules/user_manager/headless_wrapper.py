@@ -199,12 +199,20 @@ class HeadlessSignupWrapperView(APIView):
             return Response({"detail": "Invalid response"}, status=status.HTTP_502_BAD_GATEWAY)
 
         # Se allauth non ha ancora emesso token (tipico con email_verification mandatory),
-        # inoltra semplicemente payload e status al frontend che leggerà i flows.
+        # inoltra semplicemente payload al frontend che leggerà i flows.
+        # Alcune versioni di allauth usano 401 per "verify_email pending": in quel caso
+        # normalizziamo a 200 perché la registrazione è andata a buon fine.
         meta = payload.get("meta") or {}
         access_token = meta.get("access_token")
         refresh_token = meta.get("refresh_token")
 
         if not access_token:
+            flows = (payload.get("data") or {}).get("flows") or []
+            has_pending_verify = any(
+                (f.get("id") == "verify_email" and f.get("is_pending")) for f in flows
+            )
+            if status_code == status.HTTP_401_UNAUTHORIZED and has_pending_verify:
+                return Response(payload, status=status.HTTP_200_OK)
             return Response(payload, status=status_code)
 
         # Caso in cui signup autentica subito: normalizza come login wrapper

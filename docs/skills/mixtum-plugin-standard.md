@@ -1,36 +1,32 @@
-# Mixtum — Standard di sviluppo Plugin
+# Mixtum — Plugin Development Standard
 
-Questo documento definisce lo standard obbligatorio per la creazione e lo sviluppo
-di plugin nel framework Mixtum. Si applica a tutti i prodotti derivati (ED Ticket,
-Fiscally, progetti custom). È destinato a sviluppatori umani e a sistemi AI che
-generano codice automaticamente.
+This document defines the mandatory standard for creating and developing plugins in the Mixtum framework. It applies to all derived products (ED Ticket, Fiscally, custom projects). It is intended for human developers and AI systems that generate code automatically.
 
 ---
 
-## Indice
+## Index
 
-1. [Struttura file obbligatoria](#1-struttura-file-obbligatoria)
-2. [File opzionali](#2-file-opzionali)
-3. [Regole generali](#3-regole-generali)
-4. [Skeleton di ogni file obbligatorio](#4-skeleton-di-ogni-file-obbligatorio)
-5. [Skeleton dei file opzionali](#5-skeleton-dei-file-opzionali)
-6. [Convenzioni di naming](#6-convenzioni-di-naming)
-7. [Regole API](#7-regole-api)
-8. [Regole Models](#8-regole-models)
-9. [Regole Services](#9-regole-services)
-10. [Regole Tests](#10-regole-tests)
-11. [Checklist prima di un commit](#11-checklist-prima-di-un-commit)
+1. [Required file structure](#1-required-file-structure)
+2. [Optional files](#2-optional-files)
+3. [General rules](#3-general-rules)
+4. [Skeleton of each required file](#4-skeleton-of-each-required-file)
+5. [Skeleton of optional files](#5-skeleton-of-optional-files)
+6. [Naming conventions](#6-naming-conventions)
+7. [API rules](#7-api-rules)
+8. [Models rules](#8-models-rules)
+9. [Services rules](#9-services-rules)
+10. [Tests rules](#10-tests-rules)
+11. [Pre-commit checklist](#11-pre-commit-checklist)
 
 ---
 
-## 1. Struttura file obbligatoria
+## 1. Required file structure
 
-Ogni plugin DEVE avere esattamente questa struttura. Nessun file obbligatorio
-può essere omesso, anche se inizialmente contiene solo lo skeleton vuoto.
+Each plugin MUST have exactly this structure. No required file can be omitted, even if it initially contains only an empty skeleton.
 
 ```
 plugins/
-└── nome_plugin/
+└── plugin_name/
     ├── __init__.py
     ├── apps.py
     ├── models.py
@@ -50,77 +46,77 @@ plugins/
 
 ---
 
-## 2. File opzionali
+## 2. Optional files
 
-I file seguenti vanno aggiunti SOLO quando effettivamente necessari.
-Non creare file opzionali vuoti.
+The following files should be added ONLY when actually needed.
+Do not create empty optional files.
 
-| File | Quando aggiungerlo |
+| File | When to add it |
 |---|---|
-| `permissions.py` | Il plugin ha logica di accesso specifica per ruolo o ownership |
-| `signals.py` | Il plugin reagisce a eventi di altri modelli via Django signals |
-| `tasks.py` | Il plugin ha operazioni asincrone via Celery |
-| `filters.py` | Le list view hanno filtri query complessi (oltre i parametri base) |
-| `pagination.py` | Il plugin usa una paginazione diversa da quella globale |
-| `managers.py` | I modelli hanno queryset logic complessa e riutilizzabile |
-| `constants.py` | Il plugin ha costanti condivise tra più file |
-| `exceptions.py` | Il plugin ha eccezioni custom |
+| `permissions.py` | The plugin has access logic specific to roles or ownership |
+| `signals.py` | The plugin reacts to events of other models via Django signals |
+| `tasks.py` | The plugin has asynchronous operations via Celery |
+| `filters.py` | List views have complex query filters (beyond basic parameters) |
+| `pagination.py` | The plugin uses pagination different from the global one |
+| `managers.py` | Models have complex and reusable queryset logic |
+| `constants.py` | The plugin has constants shared across multiple files |
+| `exceptions.py` | The plugin has custom exceptions |
 
 ---
 
-## 3. Regole generali
+## 3. General rules
 
-### 3.1 Dipendenze consentite
+### 3.1 Allowed dependencies
 
-Un plugin PUÒ importare da:
-- `base_modules.*` — qualsiasi modulo base di Mixtum
-- `django.*` — framework Django
+A plugin MAY import from:
+- `base_modules.*` — any Mixtum base module
+- `django.*` — Django framework
 - `rest_framework.*` — Django REST Framework
-- librerie Python di terze parti installate in `requirements.txt`
+- third-party Python libraries installed in `requirements.txt`
 
-Un plugin NON PUÒ importare da:
-- altri plugin (`plugins.*`)
+A plugin MAY NOT import from:
+- other plugins (`plugins.*`)
 
-Se due plugin devono comunicare, usare Django signals o un service layer
-che accetta oggetti già risolti come parametri.
+If two plugins need to communicate, use Django signals or a service layer
+that accepts already-resolved objects as parameters.
 
 ```python
-# VIETATO
+# FORBIDDEN
 from plugins.project_manager.models import Project  # ❌
 
-# CORRETTO — il project viene passato dall'esterno
+# CORRECT — the project is passed from the outside
 class TicketService:
     @staticmethod
-    def create(data, user, project):  # ✅ project arrivà dalla view
+    def create(data, user, project):  # ✅ project comes from the view
         ...
 ```
 
 ### 3.2 Business logic
 
-- Le `views.py` NON contengono business logic. Chiamano solo i services.
-- I `models.py` NON contengono business logic. Contengono solo struttura dati
-  e metodi di utilità semplici (es. `__str__`, `get_absolute_url`, properties).
-- Tutta la business logic sta in `services.py`.
+- `views.py` MUST NOT contain business logic. They only call services.
+- `models.py` MUST NOT contain business logic. They only contain data structure
+  and simple utility methods (e.g. `__str__`, `get_absolute_url`, properties).
+- All business logic lives in `services.py`.
 
-### 3.3 Accesso al database
+### 3.3 Database access
 
-- Le views NON fanno query dirette. Usano i services.
-- I services usano i manager dei modelli o queryset espliciti.
-- Le query complesse e riutilizzabili stanno in `managers.py`.
+- Views MUST NOT perform direct queries. They use services.
+- Services use model managers or explicit querysets.
+- Complex and reusable queries live in `managers.py`.
 
 ---
 
-## 4. Skeleton di ogni file obbligatorio
+## 4. Skeleton of each required file
 
-Sostituire `nome_plugin` con il nome reale del plugin in snake_case.
-Sostituire `NomePlugin` con il nome in PascalCase.
+Replace `plugin_name` with the real plugin name in snake_case.
+Replace `PluginName` with the name in PascalCase.
 
 ---
 
 ### `__init__.py`
 
 ```python
-# Lasciare vuoto
+# Leave empty
 ```
 
 ---
@@ -131,14 +127,14 @@ Sostituire `NomePlugin` con il nome in PascalCase.
 from django.apps import AppConfig
 
 
-class NomePluginConfig(AppConfig):
+class PluginNameConfig(AppConfig):
     default_auto_field = "django.db.models.BigAutoField"
-    name = "plugins.nome_plugin"
-    verbose_name = "Nome Plugin"
+    name = "plugins.plugin_name"
+    verbose_name = "Plugin Name"
 
     def ready(self):
-        # Importare signals qui se il plugin li usa
-        # import plugins.nome_plugin.signals  # noqa
+        # Import signals here if the plugin uses them
+        # import plugins.plugin_name.signals  # noqa
         pass
 ```
 
@@ -152,39 +148,39 @@ from base_modules.user_manager.models import User
 from base_modules.workspace.models import Workspace
 
 
-class NomeModello(models.Model):
+class ModelName(models.Model):
     """
-    Descrizione breve del modello.
+    Short description of the model.
     """
     workspace = models.ForeignKey(
         Workspace,
         on_delete=models.CASCADE,
-        related_name="nome_modello_set",
+        related_name="model_name_set",
     )
     created_by = models.ForeignKey(
         User,
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
-        related_name="nome_modello_created",
+        related_name="model_name_created",
     )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
         ordering = ["-created_at"]
-        verbose_name = "Nome Modello"
-        verbose_name_plural = "Nome Modelli"
+        verbose_name = "Model Name"
+        verbose_name_plural = "Model Names"
 
     def __str__(self):
         return f"{self.__class__.__name__} #{self.pk}"
 ```
 
-**Regole models:**
-- Ogni modello DEVE avere `created_at` e `updated_at`.
-- Ogni modello DEVE avere `__str__`.
-- Ogni modello DEVE avere `Meta` con almeno `ordering` e `verbose_name`.
-- I modelli legati a un workspace DEVONO avere FK verso `Workspace`.
+**Models rules:**
+- Every model MUST have `created_at` and `updated_at`.
+- Every model MUST have `__str__`.
+- Every model MUST have `Meta` with at least `ordering` and `verbose_name`.
+- Models tied to a workspace MUST have an FK to `Workspace`.
 
 ---
 
@@ -192,39 +188,39 @@ class NomeModello(models.Model):
 
 ```python
 from rest_framework import serializers
-from .models import NomeModello
+from .models import ModelName
 
 
-class NomeModelloSerializer(serializers.ModelSerializer):
+class ModelNameSerializer(serializers.ModelSerializer):
     class Meta:
-        model = NomeModello
+        model = ModelName
         fields = [
             "id",
             "workspace",
             "created_by",
             "created_at",
             "updated_at",
-            # aggiungere campi specifici
+            # add specific fields
         ]
         read_only_fields = ["id", "created_at", "updated_at", "created_by"]
 
 
-class NomeModelloWriteSerializer(serializers.ModelSerializer):
+class ModelNameWriteSerializer(serializers.ModelSerializer):
     """
-    Serializer usato per create e update.
-    Separato dal serializer di lettura per controllo esplicito sui campi scrivibili.
+    Serializer used for create and update.
+    Separate from the read serializer for explicit control over writable fields.
     """
     class Meta:
-        model = NomeModello
+        model = ModelName
         fields = [
-            # solo i campi che l'utente può scrivere
+            # only the fields that the user can write
         ]
 ```
 
-**Regole serializers:**
-- Usare serializer separati per lettura e scrittura quando i campi differiscono.
-- `id`, `created_at`, `updated_at`, `created_by` sono sempre `read_only`.
-- Non usare `fields = "__all__"`.
+**Serializers rules:**
+- Use separate serializers for read and write when the fields differ.
+- `id`, `created_at`, `updated_at`, `created_by` are always `read_only`.
+- Do not use `fields = "__all__"`.
 
 ---
 
@@ -236,73 +232,73 @@ from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
 
-from .models import NomeModello
-from .serializers import NomeModelloSerializer, NomeModelloWriteSerializer
-from .services import NomeModelloService
+from .models import ModelName
+from .serializers import ModelNameSerializer, ModelNameWriteSerializer
+from .services import ModelNameService
 
 
-class NomeModelloListView(APIView):
+class ModelNameListView(APIView):
     """
-    GET  /api/nome-plugin/nome-modello/        → lista
-    POST /api/nome-plugin/nome-modello/        → crea
+    GET  /api/plugin-name/model-name/        → list
+    POST /api/plugin-name/model-name/        → create
     """
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
         workspace = request.user.current_workspace
-        items = NomeModelloService.get_list(workspace=workspace)
-        serializer = NomeModelloSerializer(items, many=True)
+        items = ModelNameService.get_list(workspace=workspace)
+        serializer = ModelNameSerializer(items, many=True)
         return Response(serializer.data)
 
     def post(self, request):
-        serializer = NomeModelloWriteSerializer(data=request.data)
+        serializer = ModelNameWriteSerializer(data=request.data)
         if not serializer.is_valid():
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-        item = NomeModelloService.create(
+        item = ModelNameService.create(
             data=serializer.validated_data,
             user=request.user,
         )
-        return Response(NomeModelloSerializer(item).data, status=status.HTTP_201_CREATED)
+        return Response(ModelNameSerializer(item).data, status=status.HTTP_201_CREATED)
 
 
-class NomeModelloDetailView(APIView):
+class ModelNameDetailView(APIView):
     """
-    GET    /api/nome-plugin/nome-modello/<pk>/ → dettaglio
-    PATCH  /api/nome-plugin/nome-modello/<pk>/ → aggiorna
-    DELETE /api/nome-plugin/nome-modello/<pk>/ → elimina
+    GET    /api/plugin-name/model-name/<pk>/ → detail
+    PATCH  /api/plugin-name/model-name/<pk>/ → update
+    DELETE /api/plugin-name/model-name/<pk>/ → delete
     """
     permission_classes = [IsAuthenticated]
 
     def get_object(self, pk, user):
-        return NomeModelloService.get_by_id(pk=pk, user=user)
+        return ModelNameService.get_by_id(pk=pk, user=user)
 
     def get(self, request, pk):
         item = self.get_object(pk, request.user)
-        return Response(NomeModelloSerializer(item).data)
+        return Response(ModelNameSerializer(item).data)
 
     def patch(self, request, pk):
         item = self.get_object(pk, request.user)
-        serializer = NomeModelloWriteSerializer(item, data=request.data, partial=True)
+        serializer = ModelNameWriteSerializer(item, data=request.data, partial=True)
         if not serializer.is_valid():
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-        item = NomeModelloService.update(
+        item = ModelNameService.update(
             instance=item,
             data=serializer.validated_data,
             user=request.user,
         )
-        return Response(NomeModelloSerializer(item).data)
+        return Response(ModelNameSerializer(item).data)
 
     def delete(self, request, pk):
         item = self.get_object(pk, request.user)
-        NomeModelloService.delete(instance=item, user=request.user)
+        ModelNameService.delete(instance=item, user=request.user)
         return Response(status=status.HTTP_204_NO_CONTENT)
 ```
 
-**Regole views:**
-- Ogni view DEVE avere `permission_classes` esplicito.
-- Le views NON contengono logica. Delegano tutto ai services.
-- Usare sempre `status.*` di DRF, mai numeri hardcoded (es. `200`, `404`).
-- Ogni classe view DEVE avere un docstring con i metodi HTTP e gli url che gestisce.
+**Views rules:**
+- Every view MUST have explicit `permission_classes`.
+- Views MUST NOT contain logic. They delegate everything to services.
+- Always use DRF `status.*`, never hardcoded numbers (e.g. `200`, `404`).
+- Every view class MUST have a docstring with the HTTP methods and URLs it handles.
 
 ---
 
@@ -312,27 +308,27 @@ class NomeModelloDetailView(APIView):
 from django.urls import path
 from . import views
 
-app_name = "nome_plugin"
+app_name = "plugin_name"
 
 urlpatterns = [
     path(
-        "nome-modello/",
-        views.NomeModelloListView.as_view(),
-        name="nome-modello-list",
+        "model-name/",
+        views.ModelNameListView.as_view(),
+        name="model-name-list",
     ),
     path(
-        "nome-modello/<int:pk>/",
-        views.NomeModelloDetailView.as_view(),
-        name="nome-modello-detail",
+        "model-name/<int:pk>/",
+        views.ModelNameDetailView.as_view(),
+        name="model-name-detail",
     ),
 ]
 ```
 
-**Regole urls:**
-- `app_name` è obbligatorio.
-- Ogni url DEVE avere un `name`.
-- Gli url usano kebab-case (`nome-modello`, non `nomeModello` né `nome_modello`).
-- Gli url terminano sempre con `/`.
+**URLs rules:**
+- `app_name` is mandatory.
+- Every URL MUST have a `name`.
+- URLs use kebab-case (`model-name`, not `modelName` nor `model_name`).
+- URLs always end with `/`.
 
 ---
 
@@ -340,21 +336,21 @@ urlpatterns = [
 
 ```python
 from django.contrib import admin
-from .models import NomeModello
+from .models import ModelName
 
 
-@admin.register(NomeModello)
-class NomeModelloAdmin(admin.ModelAdmin):
+@admin.register(ModelName)
+class ModelNameAdmin(admin.ModelAdmin):
     list_display = ["id", "workspace", "created_by", "created_at"]
     list_filter = ["workspace", "created_at"]
     search_fields = ["id"]
     readonly_fields = ["created_at", "updated_at"]
 ```
 
-**Regole admin:**
-- Ogni modello DEVE essere registrato in admin.
-- `list_display` DEVE includere almeno `id` e `created_at`.
-- `readonly_fields` DEVE includere `created_at` e `updated_at`.
+**Admin rules:**
+- Every model MUST be registered in admin.
+- `list_display` MUST include at least `id` and `created_at`.
+- `readonly_fields` MUST include `created_at` and `updated_at`.
 
 ---
 
@@ -362,30 +358,30 @@ class NomeModelloAdmin(admin.ModelAdmin):
 
 ```python
 from django.shortcuts import get_object_or_404
-from .models import NomeModello
+from .models import ModelName
 
 
-class NomeModelloService:
+class ModelNameService:
     """
-    Business logic per NomeModello.
-    Tutti i metodi sono statici — la classe è usata come namespace, non istanziata.
+    Business logic for ModelName.
+    All methods are static — the class is used as a namespace, not instantiated.
     """
 
     @staticmethod
     def get_list(workspace):
         """
-        Ritorna tutti gli oggetti del workspace.
+        Return all objects in the workspace.
         """
-        return NomeModello.objects.filter(workspace=workspace)
+        return ModelName.objects.filter(workspace=workspace)
 
     @staticmethod
     def get_by_id(pk, user):
         """
-        Ritorna un singolo oggetto. Lancia 404 se non trovato.
-        Verificare qui eventuali permessi di accesso all'oggetto.
+        Return a single object. Raise 404 if not found.
+        Check any access permissions to the object here.
         """
         return get_object_or_404(
-            NomeModello,
+            ModelName,
             pk=pk,
             workspace=user.current_workspace,
         )
@@ -393,9 +389,9 @@ class NomeModelloService:
     @staticmethod
     def create(data, user):
         """
-        Crea un nuovo oggetto.
+        Create a new object.
         """
-        return NomeModello.objects.create(
+        return ModelName.objects.create(
             **data,
             created_by=user,
             workspace=user.current_workspace,
@@ -404,7 +400,7 @@ class NomeModelloService:
     @staticmethod
     def update(instance, data, user):
         """
-        Aggiorna un oggetto esistente.
+        Update an existing object.
         """
         for attr, value in data.items():
             setattr(instance, attr, value)
@@ -414,25 +410,25 @@ class NomeModelloService:
     @staticmethod
     def delete(instance, user):
         """
-        Elimina un oggetto.
+        Delete an object.
         """
         instance.delete()
 ```
 
-**Regole services:**
-- Tutti i metodi sono `@staticmethod`.
-- La classe NON viene istanziata — è un namespace per la logica.
-- Ogni metodo DEVE avere un docstring, anche minimo.
-- La logica di permessi sull'oggetto (ownership, ruolo) sta qui, non nella view.
-- I metodi che falliscono per logica di business lanciano eccezioni esplicite,
-  non ritornano `None` silenziosamente.
+**Services rules:**
+- All methods are `@staticmethod`.
+- The class is NOT instantiated — it is a namespace for logic.
+- Every method MUST have a docstring, even minimal.
+- Object permission logic (ownership, role) lives here, not in the view.
+- Methods that fail for business-logic reasons raise explicit exceptions,
+  they do not silently return `None`.
 
 ---
 
 ### `migrations/__init__.py`
 
 ```python
-# Lasciare vuoto
+# Leave empty
 ```
 
 ---
@@ -440,7 +436,7 @@ class NomeModelloService:
 ### `tests/__init__.py`
 
 ```python
-# Lasciare vuoto
+# Leave empty
 ```
 
 ---
@@ -454,21 +450,21 @@ from django.contrib.auth import get_user_model
 User = get_user_model()
 
 
-class NomeModelloModelTest(TestCase):
+class ModelNameModelTest(TestCase):
     """
-    Test per il modello NomeModello.
+    Tests for the ModelName model.
     """
 
     def setUp(self):
-        # Setup dati comuni a tutti i test di questa classe
+        # Setup data common to all tests in this class
         pass
 
     def test_str(self):
-        # Verificare che __str__ ritorni un valore sensato
+        # Verify that __str__ returns a meaningful value
         pass
 
     def test_created_at_auto_set(self):
-        # Verificare che created_at venga impostato automaticamente
+        # Verify that created_at is set automatically
         pass
 ```
 
@@ -485,9 +481,9 @@ from django.contrib.auth import get_user_model
 User = get_user_model()
 
 
-class NomeModelloListViewTest(TestCase):
+class ModelNameListViewTest(TestCase):
     """
-    Test per NomeModelloListView.
+    Tests for ModelNameListView.
     """
 
     def setUp(self):
@@ -496,15 +492,15 @@ class NomeModelloListViewTest(TestCase):
         # self.client.force_authenticate(user=self.user)
 
     def test_list_requires_authentication(self):
-        # Verificare che la view ritorni 401 senza autenticazione
+        # Verify that the view returns 401 without authentication
         pass
 
     def test_list_returns_200(self):
-        # Verificare che la view ritorni 200 con utente autenticato
+        # Verify that the view returns 200 with an authenticated user
         pass
 
     def test_create_returns_201(self):
-        # Verificare che la creazione ritorni 201
+        # Verify that create returns 201
         pass
 ```
 
@@ -516,26 +512,26 @@ class NomeModelloListViewTest(TestCase):
 from django.test import TestCase
 
 
-class NomeModelloServiceTest(TestCase):
+class ModelNameServiceTest(TestCase):
     """
-    Test per NomeModelloService.
+    Tests for ModelNameService.
     """
 
     def setUp(self):
         pass
 
     def test_create(self):
-        # Verificare che create() ritorni un oggetto valido
+        # Verify that create() returns a valid object
         pass
 
     def test_get_by_id_raises_404_if_not_found(self):
-        # Verificare che get_by_id() lanci 404 se l'oggetto non esiste
+        # Verify that get_by_id() raises 404 if the object does not exist
         pass
 ```
 
 ---
 
-## 5. Skeleton dei file opzionali
+## 5. Skeleton of optional files
 
 ---
 
@@ -547,16 +543,16 @@ from rest_framework.permissions import BasePermission
 
 class IsWorkspaceMember(BasePermission):
     """
-    Permette l'accesso solo ai membri del workspace corrente.
+    Allows access only to members of the current workspace.
     """
-    message = "Non hai i permessi per accedere a questa risorsa."
+    message = "You do not have permission to access this resource."
 
     def has_permission(self, request, view):
-        # logica permesso a livello di view
+        # view-level permission logic
         return True
 
     def has_object_permission(self, request, view, obj):
-        # logica permesso a livello di oggetto
+        # object-level permission logic
         return obj.workspace == request.user.current_workspace
 ```
 
@@ -567,34 +563,34 @@ class IsWorkspaceMember(BasePermission):
 ```python
 from django.db.models.signals import post_save, post_delete
 from django.dispatch import receiver
-from .models import NomeModello
+from .models import ModelName
 
 
-@receiver(post_save, sender=NomeModello)
-def on_nome_modello_saved(sender, instance, created, **kwargs):
+@receiver(post_save, sender=ModelName)
+def on_model_name_saved(sender, instance, created, **kwargs):
     """
-    Eseguito dopo il salvataggio di NomeModello.
+    Executed after saving ModelName.
     """
     if created:
-        pass  # logica per nuovi oggetti
+        pass  # logic for new objects
     else:
-        pass  # logica per oggetti aggiornati
+        pass  # logic for updated objects
 
 
-@receiver(post_delete, sender=NomeModello)
-def on_nome_modello_deleted(sender, instance, **kwargs):
+@receiver(post_delete, sender=ModelName)
+def on_model_name_deleted(sender, instance, **kwargs):
     """
-    Eseguito dopo l'eliminazione di NomeModello.
+    Executed after deleting ModelName.
     """
     pass
 ```
 
-**Nota:** i signals vanno importati in `apps.py` nel metodo `ready()`.
+**Note:** signals must be imported in `apps.py` in the `ready()` method.
 
 ```python
 # apps.py
 def ready(self):
-    import plugins.nome_plugin.signals  # noqa
+    import plugins.plugin_name.signals  # noqa
 ```
 
 ---
@@ -606,14 +602,14 @@ from mixtum_core.celery import app
 
 
 @app.task(bind=True, max_retries=3)
-def nome_task(self, oggetto_id):
+def task_name(self, object_id):
     """
-    Descrizione del task.
-    bind=True permette di accedere a self per retry.
-    max_retries=3 è il default consigliato.
+    Task description.
+    bind=True allows access to self for retry.
+    max_retries=3 is the recommended default.
     """
     try:
-        # logica del task
+        # task logic
         pass
     except Exception as exc:
         raise self.retry(exc=exc, countdown=60)
@@ -627,10 +623,10 @@ def nome_task(self, oggetto_id):
 from django.db.models import Q
 
 
-class NomeModelloFilter:
+class ModelNameFilter:
     """
-    Logica di filtro per NomeModello.
-    Usato nei services, non nelle views direttamente.
+    Filter logic for ModelName.
+    Used in services, not directly in views.
     """
 
     @staticmethod
@@ -638,8 +634,8 @@ class NomeModelloFilter:
         search = params.get("search")
         if search:
             queryset = queryset.filter(
-                Q(campo_uno__icontains=search) |
-                Q(campo_due__icontains=search)
+                Q(field_one__icontains=search) |
+                Q(field_two__icontains=search)
             )
         return queryset
 ```
@@ -652,32 +648,32 @@ class NomeModelloFilter:
 from django.db import models
 
 
-class NomeModelloQuerySet(models.QuerySet):
+class ModelNameQuerySet(models.QuerySet):
 
-    def attivi(self):
-        return self.filter(attivo=True)
+    def active(self):
+        return self.filter(active=True)
 
-    def del_workspace(self, workspace):
+    def for_workspace(self, workspace):
         return self.filter(workspace=workspace)
 
 
-class NomeModelloManager(models.Manager):
+class ModelNameManager(models.Manager):
 
     def get_queryset(self):
-        return NomeModelloQuerySet(self.model, using=self._db)
+        return ModelNameQuerySet(self.model, using=self._db)
 
-    def attivi(self):
-        return self.get_queryset().attivi()
+    def active(self):
+        return self.get_queryset().active()
 
-    def del_workspace(self, workspace):
-        return self.get_queryset().del_workspace(workspace)
+    def for_workspace(self, workspace):
+        return self.get_queryset().for_workspace(workspace)
 ```
 
-Usato nel model:
+Used in the model:
 
 ```python
-class NomeModello(models.Model):
-    objects = NomeModelloManager()
+class ModelName(models.Model):
+    objects = ModelNameManager()
     ...
 ```
 
@@ -686,10 +682,10 @@ class NomeModello(models.Model):
 ### `constants.py`
 
 ```python
-class StatoNomeModello(models.TextChoices):
-    BOZZA = "draft", "Bozza"
-    ATTIVO = "active", "Attivo"
-    ARCHIVIATO = "archived", "Archiviato"
+class ModelNameStatus(models.TextChoices):
+    DRAFT = "draft", "Draft"
+    ACTIVE = "active", "Active"
+    ARCHIVED = "archived", "Archived"
 ```
 
 ---
@@ -701,169 +697,169 @@ from rest_framework.exceptions import APIException
 from rest_framework import status
 
 
-class NomeModelloNonTrovato(APIException):
+class ModelNameNotFound(APIException):
     status_code = status.HTTP_404_NOT_FOUND
-    default_detail = "Oggetto non trovato."
+    default_detail = "Object not found."
     default_code = "not_found"
 
 
-class OperazioneNonConsentita(APIException):
+class OperationNotAllowed(APIException):
     status_code = status.HTTP_403_FORBIDDEN
-    default_detail = "Operazione non consentita."
+    default_detail = "Operation not allowed."
     default_code = "forbidden"
 ```
 
 ---
 
-## 6. Convenzioni di naming
+## 6. Naming conventions
 
-| Elemento | Convenzione | Esempio |
+| Element | Convention | Example |
 |---|---|---|
-| Cartella plugin | snake_case | `ticket_manager` |
-| Classe modello | PascalCase | `Ticket`, `TicketMessage` |
-| Classe service | PascalCase + `Service` | `TicketService` |
-| Classe serializer | PascalCase + `Serializer` | `TicketSerializer` |
-| Classe serializer scrittura | PascalCase + `WriteSerializer` | `TicketWriteSerializer` |
-| Classe view lista | PascalCase + `ListView` | `TicketListView` |
-| Classe view dettaglio | PascalCase + `DetailView` | `TicketDetailView` |
-| Classe view custom | PascalCase + azione + `View` | `TicketAssignView` |
-| URL pattern | kebab-case | `ticket-list`, `ticket-detail` |
-| URL path | kebab-case con `/` finale | `tickets/`, `tickets/<int:pk>/` |
-| Metodo service | snake_case verbo | `get_list`, `create`, `update`, `delete` |
-| Task Celery | snake_case verbo | `send_ticket_notification` |
-| Signal handler | `on_` + modello + evento | `on_ticket_created` |
+| Plugin folder | snake_case | `ticket_manager` |
+| Model class | PascalCase | `Ticket`, `TicketMessage` |
+| Service class | PascalCase + `Service` | `TicketService` |
+| Read serializer class | PascalCase + `Serializer` | `TicketSerializer` |
+| Write serializer class | PascalCase + `WriteSerializer` | `TicketWriteSerializer` |
+| List view class | PascalCase + `ListView` | `TicketListView` |
+| Detail view class | PascalCase + `DetailView` | `TicketDetailView` |
+| Custom view class | PascalCase + action + `View` | `TicketAssignView` |
+| URL name | kebab-case | `ticket-list`, `ticket-detail` |
+| URL path | kebab-case with trailing `/` | `tickets/`, `tickets/<int:pk>/` |
+| Service method | snake_case verb | `get_list`, `create`, `update`, `delete` |
+| Celery task | snake_case verb | `send_ticket_notification` |
+| Signal handler | `on_` + model + event | `on_ticket_created` |
 | Test class | PascalCase + `Test` | `TicketServiceTest` |
-| Test method | `test_` + descrizione | `test_create_returns_201` |
+| Test method | `test_` + description | `test_create_returns_201` |
 
 ---
 
-## 7. Regole API
+## 7. API rules
 
-### Struttura URL
-
-```
-/api/{nome-plugin}/{risorsa}/              → lista + creazione
-/api/{nome-plugin}/{risorsa}/<pk>/         → dettaglio + update + delete
-/api/{nome-plugin}/{risorsa}/<pk>/{azione}/ → azioni custom
-```
-
-Esempi:
+### URL structure
 
 ```
-GET    /api/ticket-manager/tickets/           → lista ticket
-POST   /api/ticket-manager/tickets/           → crea ticket
-GET    /api/ticket-manager/tickets/42/        → dettaglio ticket 42
-PATCH  /api/ticket-manager/tickets/42/        → aggiorna ticket 42
-DELETE /api/ticket-manager/tickets/42/        → elimina ticket 42
-POST   /api/ticket-manager/tickets/42/assign/ → azione custom
+/api/{plugin-name}/{resource}/               → list + create
+/api/{plugin-name}/{resource}/<pk>/          → detail + update + delete
+/api/{plugin-name}/{resource}/<pk>/{action}/  → custom actions
 ```
 
-### Metodi HTTP
+Examples:
 
-| Operazione | Metodo | Status risposta successo |
+```
+GET    /api/ticket-manager/tickets/           → list tickets
+POST   /api/ticket-manager/tickets/           → create ticket
+GET    /api/ticket-manager/tickets/42/        → ticket 42 detail
+PATCH  /api/ticket-manager/tickets/42/        → update ticket 42
+DELETE /api/ticket-manager/tickets/42/        → delete ticket 42
+POST   /api/ticket-manager/tickets/42/assign/ → custom action
+```
+
+### HTTP methods
+
+| Operation | Method | Success status code |
 |---|---|---|
-| Lista | GET | 200 |
-| Dettaglio | GET | 200 |
-| Creazione | POST | 201 |
-| Aggiornamento parziale | PATCH | 200 |
-| Aggiornamento completo | PUT | 200 |
-| Eliminazione | DELETE | 204 |
-| Azione custom | POST | 200 |
+| List | GET | 200 |
+| Detail | GET | 200 |
+| Create | POST | 201 |
+| Partial update | PATCH | 200 |
+| Full update | PUT | 200 |
+| Delete | DELETE | 204 |
+| Custom action | POST | 200 |
 
-### Formato risposta errori
+### Error response format
 
-Tutti gli errori seguono questo formato:
-
-```json
-{
-    "detail": "Messaggio di errore leggibile."
-}
-```
-
-oppure per errori di validazione:
+All errors follow this format:
 
 ```json
 {
-    "campo": ["Messaggio di errore per questo campo."]
+    "detail": "Human-readable error message."
+}
+```
+
+or for validation errors:
+
+```json
+{
+    "field": ["Error message for this field."]
 }
 ```
 
 ---
 
-## 8. Regole Models
+## 8. Models rules
 
-- Ogni modello DEVE avere `created_at = DateTimeField(auto_now_add=True)`
-- Ogni modello DEVE avere `updated_at = DateTimeField(auto_now=True)`
-- Ogni modello DEVE avere `__str__` che ritorna una stringa significativa
-- Ogni modello DEVE avere `class Meta` con `ordering` e `verbose_name`
-- I campi di stato usano SEMPRE `TextChoices` definiti in `constants.py`
-- Le FK verso `User` usano `related_name` esplicito e descrittivo
-- Non usare `null=True` su campi stringa — usare `blank=True` e default `""`
-- Usare `on_delete=models.PROTECT` quando la cancellazione del parent
-  non deve essere consentita se esistono oggetti collegati
-
----
-
-## 9. Regole Services
-
-- Tutti i metodi sono `@staticmethod`
-- La classe non viene mai istanziata
-- Ogni metodo ha un docstring
-- Un metodo service fa UNA cosa sola
-- I metodi che non trovano un oggetto lanciano `Http404` o eccezione esplicita,
-  mai ritornano `None`
-- La logica di permessi sull'oggetto specifico sta nel service, non nella view
-- Le notifiche (email, task Celery) vengono chiamate dal service dopo
-  l'operazione principale, mai dalla view
+- Every model MUST have `created_at = DateTimeField(auto_now_add=True)`
+- Every model MUST have `updated_at = DateTimeField(auto_now=True)`
+- Every model MUST have `__str__` that returns a meaningful string
+- Every model MUST have `class Meta` with `ordering` and `verbose_name`
+- State fields ALWAYS use `TextChoices` defined in `constants.py`
+- FKs to `User` use an explicit and descriptive `related_name`
+- Do not use `null=True` on string fields — use `blank=True` and default `""`
+- Use `on_delete=models.PROTECT` when deletion of the parent
+  must not be allowed if related objects exist
 
 ---
 
-## 10. Regole Tests
+## 9. Services rules
 
-- I test usano `django.test.TestCase`
-- Le view si testano con `rest_framework.test.APIClient`
-- Ogni test è indipendente — non dipende dall'ordine di esecuzione
-- `setUp` crea i dati minimi necessari per i test della classe
-- Il nome del metodo di test descrive esattamente cosa si sta testando
-- Testare sempre il caso di errore oltre al caso di successo
-
-Test minimi obbligatori per ogni view:
-- Risposta `401` senza autenticazione
-- Risposta corretta con autenticazione valida
-- Risposta `404` con pk inesistente (per detail views)
-- Risposta `400` con dati non validi (per POST/PATCH)
+- All methods are `@staticmethod`
+- The class is never instantiated
+- Every method has a docstring
+- A service method does ONE single thing
+- Methods that do not find an object raise `Http404` or an explicit exception,
+  never silently return `None`
+- Object-specific permission logic lives in the service, not in the view
+- Notifications (emails, Celery tasks) are triggered by the service after
+  the main operation, never from the view
 
 ---
 
-## 11. Checklist prima di un commit
+## 10. Tests rules
 
-Prima di committare codice relativo a un plugin, verificare:
+- Tests use `django.test.TestCase`
+- Views are tested with `rest_framework.test.APIClient`
+- Each test is independent — it does not depend on execution order
+- `setUp` creates the minimum data required for the class tests
+- The test method name describes exactly what is being tested
+- Always test the error case as well as the success case
 
-**Struttura**
-- [ ] Tutti i file obbligatori esistono
-- [ ] `apps.py` ha `app_name` e `verbose_name` corretti
-- [ ] Le migrations sono state generate e sono incluse nel commit
+Minimum mandatory tests for each view:
+- Response `401` without authentication
+- Correct response with valid authentication
+- Response `404` with non-existent pk (for detail views)
+- Response `400` with invalid data (for POST/PATCH)
+
+---
+
+## 11. Pre-commit checklist
+
+Before committing plugin-related code, verify:
+
+**Structure**
+- [ ] All required files exist
+- [ ] `apps.py` has correct `app_name` and `verbose_name`
+- [ ] Migrations have been generated and are included in the commit
 
 **Models**
-- [ ] Ogni modello ha `created_at`, `updated_at`, `__str__`, `Meta`
-- [ ] Nessun campo stringa usa `null=True`
-- [ ] Le FK hanno `related_name` esplicito
+- [ ] Every model has `created_at`, `updated_at`, `__str__`, `Meta`
+- [ ] No string field uses `null=True`
+- [ ] FKs have an explicit `related_name`
 
 **API**
-- [ ] Ogni view ha `permission_classes` esplicito
-- [ ] Le views non contengono logica di business
-- [ ] Gli URL seguono la convenzione kebab-case con `/` finale
-- [ ] `app_name` è definito in `urls.py`
+- [ ] Every view has explicit `permission_classes`
+- [ ] Views do not contain business logic
+- [ ] URLs follow kebab-case convention with trailing `/`
+- [ ] `app_name` is defined in `urls.py`
 
 **Services**
-- [ ] Tutti i metodi sono `@staticmethod`
-- [ ] Ogni metodo ha un docstring
-- [ ] Nessun metodo ritorna `None` silenziosamente in caso di errore
+- [ ] All methods are `@staticmethod`
+- [ ] Every method has a docstring
+- [ ] No method silently returns `None` in case of error
 
 **Admin**
-- [ ] Ogni modello è registrato in admin
-- [ ] `list_display` include almeno `id` e `created_at`
+- [ ] Every model is registered in admin
+- [ ] `list_display` includes at least `id` and `created_at`
 
 **Tests**
-- [ ] I file di test esistono anche se i metodi sono ancora vuoti
-- [ ] Nessun test dipende dall'ordine di esecuzione
+- [ ] Test files exist even if methods are still empty
+- [ ] No test depends on execution order
