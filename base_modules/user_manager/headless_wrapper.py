@@ -258,17 +258,17 @@ class HeadlessConfirmEmailWrapperView(APIView):
 
         from django.test import RequestFactory
 
-        # Usa la URL classica di allauth inclusa sotto /api/v1/accounts/
+        # Usa la URL classica di allauth inclusa sotto /api/v1/accounts/.
+        # Chiamata interna in POST così la conferma non avviene mai su GET (sicurezza).
         path = f"/api/v1/accounts/confirm-email/{key}/"
         factory = RequestFactory()
-        internal_req = factory.get(path)
+        internal_req = factory.post(path, {})
         internal_req.session = request.session
         internal_req.user = request.user
 
         try:
             match = resolve(path)
             confirm_view = match.func
-            # Passa kwargs (es. key) come allauth si aspetta
             response = confirm_view(internal_req, **match.kwargs)
         except Resolver404:
             return Response(

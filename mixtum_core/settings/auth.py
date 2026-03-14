@@ -18,6 +18,8 @@ LOGOUT_REDIRECT_URL = "/"
 ACCOUNT_LOGIN_METHODS = {"username", "email"}
 ACCOUNT_SIGNUP_FIELDS = ["email*", "username*", "password1*", "password2*"]
 ACCOUNT_EMAIL_VERIFICATION = "mandatory"
+# Il wrapper conferma via POST interna ad allauth; non serve conferma su GET.
+ACCOUNT_CONFIRM_EMAIL_ON_GET = False
 
 # ---------------------------------------------------------------------------
 # Allauth headless (JWT strategy) — only when AUTH_MODE=django
