@@ -10,7 +10,7 @@ from types import SimpleNamespace
 logger = logging.getLogger(__name__)
 
 from django.conf import settings
-from django.http import HttpRequest
+from django.http import Http404, HttpRequest
 from django.urls import resolve, Resolver404
 from rest_framework import status
 from rest_framework.permissions import AllowAny
@@ -280,10 +280,16 @@ class HeadlessConfirmEmailWrapperView(APIView):
                 {"status": "error", "code": "invalid_key", "detail": "Invalid confirmation key."},
                 status=status.HTTP_404_NOT_FOUND,
             )
+        except Http404:
+            # allauth get_object() non trova la key (scaduta, già usata o inesistente)
+            return Response(
+                {"status": "error", "code": "invalid_or_expired", "detail": "Link non valido o scaduto."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
         except Exception as e:
             logger.exception("ConfirmEmail wrapper failed for key=%s: %s", key[:8] if key else "", e)
             return Response(
-                {"status": "error", "code": "confirm_failed", "detail": str(e)},
+                {"status": "error", "code": "confirm_failed", "detail": str(e) or "Errore durante la conferma."},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
