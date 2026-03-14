@@ -235,7 +235,7 @@ class HeadlessConfirmEmailWrapperView(APIView):
     """
     Wrapper: conferma l'email usando la key inviata nel link di allauth.
 
-    - Riceve POST {\"key\": \"...\"} da Angular.
+    - Riceve POST {"key": "..."} da Angular.
     - Invoca la view di conferma di allauth esposta sotto /api/v1/accounts/confirm-email/<key>/
       e traduce la risposta in un payload API semplice.
     """
@@ -245,21 +245,21 @@ class HeadlessConfirmEmailWrapperView(APIView):
     def post(self, request):
         if getattr(settings, "AUTH_MODE", "django") != "django":
             return Response(
-                {\"detail\": \"Headless confirm-email only when AUTH_MODE=django.\"},
+                {"detail": "Headless confirm-email only when AUTH_MODE=django."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        key = (request.data or {}).get(\"key\") or \"\"
+        key = (request.data or {}).get("key") or ""
         if not key:
             return Response(
-                {\"status\": \"error\", \"code\": \"missing_key\", \"detail\": \"Missing confirmation key.\"},
+                {"status": "error", "code": "missing_key", "detail": "Missing confirmation key."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
         from django.test import RequestFactory
 
         # Usa la URL classica di allauth inclusa sotto /api/v1/accounts/
-        path = f\"/api/v1/accounts/confirm-email/{key}/\"
+        path = f"/api/v1/accounts/confirm-email/{key}/"
         factory = RequestFactory()
         internal_req = factory.get(path)
         internal_req.session = request.session
@@ -272,24 +272,24 @@ class HeadlessConfirmEmailWrapperView(APIView):
             response = confirm_view(internal_req, **match.kwargs)
         except Resolver404:
             return Response(
-                {\"status\": \"error\", \"code\": \"invalid_key\", \"detail\": \"Invalid confirmation key.\"},
+                {"status": "error", "code": "invalid_key", "detail": "Invalid confirmation key."},
                 status=status.HTTP_404_NOT_FOUND,
             )
         except Exception as e:
             return Response(
-                {\"status\": \"error\", \"code\": \"confirm_failed\", \"detail\": str(e)},
+                {"status": "error", "code": "confirm_failed", "detail": str(e)},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
         # Allauth tipicamente risponde con 200/302 per successo, 4xx per errori.
         if 200 <= response.status_code < 400:
-            return Response({\"status\": \"ok\"}, status=status.HTTP_200_OK)
+            return Response({"status": "ok"}, status=status.HTTP_200_OK)
 
         # Errore: prova a distinguere chiave scaduta/già usata tramite status_code
-        code = \"invalid_or_expired\"
+        code = "invalid_or_expired"
         if response.status_code == 404:
-            code = \"invalid_key\"
+            code = "invalid_key"
         return Response(
-            {\"status\": \"error\", \"code\": code, \"detail\": \"Unable to confirm email.\"},
+            {"status": "error", "code": code, "detail": "Unable to confirm email."},
             status=response.status_code,
         )
