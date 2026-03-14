@@ -3,8 +3,11 @@ Headless auth wrapper: proxy to allauth headless API and set refresh token
 in httpOnly cookie; return only access token in body (Opzione B - enterprise).
 """
 import json
+import logging
 import os
 from types import SimpleNamespace
+
+logger = logging.getLogger(__name__)
 
 from django.conf import settings
 from django.http import HttpRequest
@@ -265,9 +268,11 @@ class HeadlessConfirmEmailWrapperView(APIView):
         internal_req = factory.post(path, {})
         internal_req.session = request.session
         internal_req.user = request.user
+        internal_req.allauth = SimpleNamespace()
 
         try:
             match = resolve(path)
+            internal_req.resolver_match = match
             confirm_view = match.func
             response = confirm_view(internal_req, **match.kwargs)
         except Resolver404:
@@ -276,6 +281,7 @@ class HeadlessConfirmEmailWrapperView(APIView):
                 status=status.HTTP_404_NOT_FOUND,
             )
         except Exception as e:
+            logger.exception("ConfirmEmail wrapper failed for key=%s: %s", key[:8] if key else "", e)
             return Response(
                 {"status": "error", "code": "confirm_failed", "detail": str(e)},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
