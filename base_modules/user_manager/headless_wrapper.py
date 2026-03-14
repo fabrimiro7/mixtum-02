@@ -269,6 +269,10 @@ class HeadlessConfirmEmailWrapperView(APIView):
         internal_req.session = request.session
         internal_req.user = request.user
         internal_req.allauth = SimpleNamespace()
+        # La view allauth dopo la conferma chiama messages.success(); senza middleware
+        # serviamo un backend messages sulla richiesta interna per evitare l'eccezione.
+        from django.contrib.messages.storage.fallback import FallbackStorage
+        internal_req._messages = FallbackStorage(internal_req)
 
         try:
             match = resolve(path)
