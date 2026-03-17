@@ -3,7 +3,7 @@ import os
 
 BASE_DIR = Path(__file__).resolve().parents[2]  # points to project root
 SECRET_KEY = os.environ.get("SECRET_KEY", "django-insecure-default-key")
-DEBUG = os.environ.get("DEBUG", "0").lower() in ("1", "true", "yes")
+DEBUG = False
 
 ALLOWED_HOSTS = [h.strip() for h in os.environ.get("ALLOWED_HOSTS", "*").split(",") if h.strip()]
 CSRF_TRUSTED_ORIGINS = [o.strip() for o in os.environ.get("CSRF_TRUSTED_ORIGINS", "").split(",") if o.strip()]
