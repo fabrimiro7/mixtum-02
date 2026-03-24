@@ -5,7 +5,8 @@
 # - override 1: INSTANCE_NAME=dev2 make dev-d  -> nomecartella-dev2
 # - override 2: COMPOSE_PROJECT_NAME=custom make dev-d
 BASE_PROJECT_NAME := $(shell basename $(CURDIR))
-INSTANCE_NAME ?=
+ENV_INSTANCE_NAME := $(shell [ -f .env ] && sed -n 's/^INSTANCE_NAME=//p' .env | sed -n '1p')
+INSTANCE_NAME ?= $(strip $(ENV_INSTANCE_NAME))
 COMPOSE_PROJECT_NAME ?= $(if $(strip $(INSTANCE_NAME)),$(BASE_PROJECT_NAME)-$(INSTANCE_NAME),$(BASE_PROJECT_NAME))
 
 # ─────────────────────────────────────────

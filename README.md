@@ -77,6 +77,14 @@ INSTANCE_NAME=dev2 make logs
 INSTANCE_NAME=dev2 make stop
 ```
 
+`make setup` salva automaticamente `INSTANCE_NAME` in `.env`, quindi i comandi successivi (incluso `make rebuild`) riusano la stessa istanza anche senza prefisso.
+
+Per un override temporaneo su una singola esecuzione:
+
+```bash
+INSTANCE_NAME=altro make rebuild
+```
+
 Se lasci il nome istanza vuoto, il comportamento resta identico a prima (stack di default basato sul nome cartella).
 
 ### 4. Avvio successivi

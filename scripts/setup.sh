@@ -89,7 +89,15 @@ else
     export COMPOSE_PROJECT_NAME="$BASE_PROJECT_NAME"
 fi
 
+# Persisti l'istanza in .env per i comandi make successivi
+if grep -q '^INSTANCE_NAME=' .env 2>/dev/null; then
+    sed 's|^INSTANCE_NAME=.*|INSTANCE_NAME='"$INSTANCE_NAME"'|' .env > .env.tmp && mv .env.tmp .env
+else
+    printf "\nINSTANCE_NAME=%s\n" "$INSTANCE_NAME" >> .env
+fi
+
 echo "✓ Docker project name: $COMPOSE_PROJECT_NAME"
+echo "✓ INSTANCE_NAME salvata in .env per i prossimi comandi make"
 if [ -n "$INSTANCE_NAME" ]; then
     MAKE_PREFIX="INSTANCE_NAME=${INSTANCE_NAME} "
 else
