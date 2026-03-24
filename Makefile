@@ -5,7 +5,8 @@
 # - override 1: INSTANCE_NAME=dev2 make dev-d  -> nomecartella-dev2
 # - override 2: COMPOSE_PROJECT_NAME=custom make dev-d
 BASE_PROJECT_NAME := $(shell basename $(CURDIR))
-ENV_INSTANCE_NAME := $(shell [ -f .env ] && sed -n 's/^INSTANCE_NAME=//p' .env | sed -n '1p')
+# Allineato a scripts/setup.sh: solo [a-z0-9-], niente spazi (altrimenti -p si spezza nella shell)
+ENV_INSTANCE_NAME := $(shell [ -f .env ] && sed -n 's/^INSTANCE_NAME=//p' .env | sed -n '1p' | tr '[:upper:]' '[:lower:]' | tr -cs 'a-z0-9' '-' | sed 's/^-*//;s/-*$$//')
 INSTANCE_NAME ?= $(strip $(ENV_INSTANCE_NAME))
 COMPOSE_PROJECT_NAME ?= $(if $(strip $(INSTANCE_NAME)),$(BASE_PROJECT_NAME)-$(INSTANCE_NAME),$(BASE_PROJECT_NAME))
 
@@ -21,12 +22,12 @@ setup:
 # ─────────────────────────────────────────
 
 dev:
-	docker compose -p $(COMPOSE_PROJECT_NAME) --env-file .env -f docker/docker-compose.yml \
+	docker compose -p "$(COMPOSE_PROJECT_NAME)" --env-file .env -f docker/docker-compose.yml \
 	               -f docker/docker-compose.local.yml \
 	               -f docker/docker-compose.override.yml up
 
 dev-d:
-	docker compose -p $(COMPOSE_PROJECT_NAME) --env-file .env -f docker/docker-compose.yml \
+	docker compose -p "$(COMPOSE_PROJECT_NAME)" --env-file .env -f docker/docker-compose.yml \
 	               -f docker/docker-compose.local.yml \
 	               -f docker/docker-compose.override.yml up -d
 
@@ -35,7 +36,7 @@ dev-d:
 # ─────────────────────────────────────────
 
 prod:
-	docker compose -p $(COMPOSE_PROJECT_NAME) --env-file .env -f docker/docker-compose.yml \
+	docker compose -p "$(COMPOSE_PROJECT_NAME)" --env-file .env -f docker/docker-compose.yml \
 	               -f docker/docker-compose.prod.yml up -d
 
 # ─────────────────────────────────────────
@@ -43,32 +44,32 @@ prod:
 # ─────────────────────────────────────────
 
 stop:
-	docker compose -p $(COMPOSE_PROJECT_NAME) --env-file .env -f docker/docker-compose.yml \
+	docker compose -p "$(COMPOSE_PROJECT_NAME)" --env-file .env -f docker/docker-compose.yml \
 	              -f docker/docker-compose.local.yml \
 	              -f docker/docker-compose.override.yml down
 
 migrate:
-	docker compose -p $(COMPOSE_PROJECT_NAME) --env-file .env -f docker/docker-compose.yml \
+	docker compose -p "$(COMPOSE_PROJECT_NAME)" --env-file .env -f docker/docker-compose.yml \
 	              -f docker/docker-compose.local.yml \
 	              -f docker/docker-compose.override.yml exec web python manage.py migrate
 
 makemigrations:
-	docker compose -p $(COMPOSE_PROJECT_NAME) --env-file .env -f docker/docker-compose.yml \
+	docker compose -p "$(COMPOSE_PROJECT_NAME)" --env-file .env -f docker/docker-compose.yml \
 	              -f docker/docker-compose.local.yml \
 	              -f docker/docker-compose.override.yml exec web python manage.py makemigrations
 
 shell:
-	docker compose -p $(COMPOSE_PROJECT_NAME) --env-file .env -f docker/docker-compose.yml \
+	docker compose -p "$(COMPOSE_PROJECT_NAME)" --env-file .env -f docker/docker-compose.yml \
 	              -f docker/docker-compose.local.yml \
 	              -f docker/docker-compose.override.yml exec web python manage.py shell
 
 logs:
-	docker compose -p $(COMPOSE_PROJECT_NAME) --env-file .env -f docker/docker-compose.yml \
+	docker compose -p "$(COMPOSE_PROJECT_NAME)" --env-file .env -f docker/docker-compose.yml \
 	              -f docker/docker-compose.local.yml \
 	              -f docker/docker-compose.override.yml logs -f web worker
 
 restart:
-	docker compose -p $(COMPOSE_PROJECT_NAME) --env-file .env -f docker/docker-compose.yml \
+	docker compose -p "$(COMPOSE_PROJECT_NAME)" --env-file .env -f docker/docker-compose.yml \
 	              -f docker/docker-compose.local.yml \
 	              -f docker/docker-compose.override.yml restart web worker beat
 
@@ -82,19 +83,19 @@ restart:
 
 rebuild:
 	# Ferma e rimuove i container del progetto corrente (mantiene i volumi)
-	docker compose -p $(COMPOSE_PROJECT_NAME) --env-file .env -f docker/docker-compose.yml \
+	docker compose -p "$(COMPOSE_PROJECT_NAME)" --env-file .env -f docker/docker-compose.yml \
 	               -f docker/docker-compose.local.yml \
 	               -f docker/docker-compose.override.yml down
 	# Rebuild immagini (include nuovi requirements nel Dockerfile)
-	docker compose -p $(COMPOSE_PROJECT_NAME) --env-file .env -f docker/docker-compose.yml \
+	docker compose -p "$(COMPOSE_PROJECT_NAME)" --env-file .env -f docker/docker-compose.yml \
 	               -f docker/docker-compose.local.yml \
 	               -f docker/docker-compose.override.yml build
 	# Avvia servizi (web, worker, beat, db, redis, ecc.)
-	docker compose -p $(COMPOSE_PROJECT_NAME) --env-file .env -f docker/docker-compose.yml \
+	docker compose -p "$(COMPOSE_PROJECT_NAME)" --env-file .env -f docker/docker-compose.yml \
 	               -f docker/docker-compose.local.yml \
 	               -f docker/docker-compose.override.yml up -d
 	# Applica migrations sul container web già avviato
-	docker compose -p $(COMPOSE_PROJECT_NAME) --env-file .env -f docker/docker-compose.yml \
+	docker compose -p "$(COMPOSE_PROJECT_NAME)" --env-file .env -f docker/docker-compose.yml \
 	               -f docker/docker-compose.local.yml \
 	               -f docker/docker-compose.override.yml exec web python manage.py migrate
 
@@ -107,16 +108,16 @@ hard-rebuild:
 	@echo "⚠ ATTENZIONE: questo comando esegue 'docker compose down -v' e CANCELLA anche i volumi (database, redis, ecc.)."
 	@read -p "Sei sicuro di voler procedere? (yes/N): " CONFIRM; \
 	if [ "$$CONFIRM" = "yes" ]; then \
-	  docker compose -p $(COMPOSE_PROJECT_NAME) --env-file .env -f docker/docker-compose.yml \
+	  docker compose -p "$(COMPOSE_PROJECT_NAME)" --env-file .env -f docker/docker-compose.yml \
 	                 -f docker/docker-compose.local.yml \
 	                 -f docker/docker-compose.override.yml down -v; \
-	  docker compose -p $(COMPOSE_PROJECT_NAME) --env-file .env -f docker/docker-compose.yml \
+	  docker compose -p "$(COMPOSE_PROJECT_NAME)" --env-file .env -f docker/docker-compose.yml \
 	                 -f docker/docker-compose.local.yml \
 	                 -f docker/docker-compose.override.yml build; \
-	  docker compose -p $(COMPOSE_PROJECT_NAME) --env-file .env -f docker/docker-compose.yml \
+	  docker compose -p "$(COMPOSE_PROJECT_NAME)" --env-file .env -f docker/docker-compose.yml \
 	                 -f docker/docker-compose.local.yml \
 	                 -f docker/docker-compose.override.yml up -d; \
-	  docker compose -p $(COMPOSE_PROJECT_NAME) --env-file .env -f docker/docker-compose.yml \
+	  docker compose -p "$(COMPOSE_PROJECT_NAME)" --env-file .env -f docker/docker-compose.yml \
 	                 -f docker/docker-compose.local.yml \
 	                 -f docker/docker-compose.override.yml exec web python manage.py migrate; \
 	else \
@@ -137,7 +138,7 @@ update-mixtum:
 	@read -p "Vuoi procedere con l'aggiornamento? (y/n) " CONFIRM; \
 	if [ "$$CONFIRM" = "y" ]; then \
 	    git checkout mixtum/main -- base_modules/ mixtum_core/ scripts/ nginx/ certbot/ Dockerfile docker/ .env.example; \
-	    docker compose -p $(COMPOSE_PROJECT_NAME) --env-file .env -f docker/docker-compose.yml \
+	    docker compose -p "$(COMPOSE_PROJECT_NAME)" --env-file .env -f docker/docker-compose.yml \
 	                   -f docker/docker-compose.local.yml \
 	                   run --rm web python manage.py migrate; \
 	    echo ""; \
