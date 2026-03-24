@@ -58,7 +58,9 @@ fi
 # ─────────────────────────────────────────
 # 3. File .env
 # ─────────────────────────────────────────
+CREATED_NEW_ENV=false
 if [ ! -f .env ]; then
+    CREATED_NEW_ENV=true
     cp .env.example .env
     echo "✓ File .env creato da .env.example"
 
@@ -98,6 +100,7 @@ if [ -n "$INSTANCE_NAME" ]; then
 else
     export COMPOSE_PROJECT_NAME="$BASE_PROJECT_NAME"
 fi
+compose_project_args=(-p "$COMPOSE_PROJECT_NAME")
 
 # Persisti l'istanza in .env per i comandi make successivi
 if grep -q '^INSTANCE_NAME=' .env 2>/dev/null; then
@@ -108,6 +111,22 @@ fi
 
 echo "✓ Docker project name: $COMPOSE_PROJECT_NAME"
 echo "✓ INSTANCE_NAME salvata in .env per i prossimi comandi make"
+
+# Postgres salva la password nel volume alla prima init: se ricrei .env con una
+# password nuova, il vecchio volume continua a usare la vecchia → auth fallita.
+if [ "$CREATED_NEW_ENV" = true ]; then
+    VOL="${COMPOSE_PROJECT_NAME}_postgres_data"
+    if docker volume inspect "$VOL" &>/dev/null; then
+        echo "ℹ️  Fermo eventuali container che usano il vecchio database..."
+        docker compose "${compose_project_args[@]}" "${compose_env_args[@]}" "${compose_files[@]}" down 2>/dev/null || true
+        echo "ℹ️  Rimuovo il volume Postgres ($VOL): .env è appena stato creato e deve"
+        echo "   allinearsi al database (password nel volume vs .env)."
+        docker volume rm "$VOL" || {
+            echo "⚠️  Impossibile rimuovere il volume (forse ancora in uso). Esegui:"
+            echo "   INSTANCE_NAME=${INSTANCE_NAME} make hard-rebuild"
+        }
+    fi
+fi
 
 # Detect stale Postgres volume initialized with a different password
 VOLUME_NAME="${COMPOSE_PROJECT_NAME}_postgres_data"
@@ -132,7 +151,7 @@ fi
 # ─────────────────────────────────────────
 echo ""
 echo "⏳ Build Docker in corso..."
-docker compose "${compose_env_args[@]}" "${compose_files[@]}" build
+docker compose "${compose_project_args[@]}" "${compose_env_args[@]}" "${compose_files[@]}" build
 echo "✓ Build completata"
 
 # ─────────────────────────────────────────
@@ -140,10 +159,10 @@ echo "✓ Build completata"
 # ─────────────────────────────────────────
 echo ""
 echo "⏳ Avvio database e Redis..."
-docker compose "${compose_env_args[@]}" "${compose_files[@]}" up -d db redis
+docker compose "${compose_project_args[@]}" "${compose_env_args[@]}" "${compose_files[@]}" up -d db redis
 
 echo "⏳ Attendo che il database sia pronto..."
-until docker compose "${compose_env_args[@]}" "${compose_files[@]}" exec -T db pg_isready -U "${POSTGRES_USER:-mixtumuser}" > /dev/null 2>&1; do
+until docker compose "${compose_project_args[@]}" "${compose_env_args[@]}" "${compose_files[@]}" exec -T db pg_isready -U "${POSTGRES_USER:-mixtumuser}" > /dev/null 2>&1; do
     sleep 1
 done
 echo "✓ Database pronto"
@@ -153,7 +172,7 @@ echo "✓ Database pronto"
 # ─────────────────────────────────────────
 echo ""
 echo "⏳ Esecuzione migrations..."
-docker compose "${compose_env_args[@]}" "${compose_files[@]}" run --rm web python manage.py migrate
+docker compose "${compose_project_args[@]}" "${compose_env_args[@]}" "${compose_files[@]}" run --rm web python manage.py migrate
 echo "✓ Migrations completate"
 
 # ─────────────────────────────────────────
@@ -177,7 +196,7 @@ fi
 echo ""
 read -p "Vuoi creare un superuser admin? (y/n) " CREATE_SUPER
 if [ "$CREATE_SUPER" = "y" ]; then
-    docker compose "${compose_env_args[@]}" "${compose_files[@]}" run --rm web python manage.py createsuperuser
+    docker compose "${compose_project_args[@]}" "${compose_env_args[@]}" "${compose_files[@]}" run --rm web python manage.py createsuperuser
 fi
 
 # ─────────────────────────────────────────
@@ -185,7 +204,7 @@ fi
 # ─────────────────────────────────────────
 echo ""
 echo "⏳ Avvio completo del progetto..."
-docker compose "${compose_env_args[@]}" "${compose_files[@]}" up -d
+docker compose "${compose_project_args[@]}" "${compose_env_args[@]}" "${compose_files[@]}" up -d
 
 echo ""
 echo "✅ Setup completato!"
