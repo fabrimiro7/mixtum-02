@@ -30,10 +30,17 @@ if [[ "$SETUP_ENV" = "local" ]]; then
 # Aggiungi qui volumi, porte, ecc. specifici del tuo ambiente.
 EOF
     fi
-    COMPOSE_FILES="-f docker/docker-compose.yml -f docker/docker-compose.local.yml -f docker/docker-compose.override.yml"
+    compose_files=(
+        -f "$ROOT_DIR/docker/docker-compose.yml"
+        -f "$ROOT_DIR/docker/docker-compose.local.yml"
+        -f "$ROOT_DIR/docker/docker-compose.override.yml"
+    )
     echo "✓ Modalità locale (docker-compose + local + override)"
 else
-    COMPOSE_FILES="-f docker/docker-compose.yml -f docker/docker-compose.prod.yml"
+    compose_files=(
+        -f "$ROOT_DIR/docker/docker-compose.yml"
+        -f "$ROOT_DIR/docker/docker-compose.prod.yml"
+    )
     echo "✓ Modalità produzione (docker-compose + prod)"
 fi
 
@@ -73,8 +80,11 @@ else
 fi
 
 # Compose deve leggere .env dalla root per POSTGRES_PASSWORD (project dir è docker/)
-COMPOSE_ENV=""
-[ -f "$ROOT_DIR/.env" ] && COMPOSE_ENV="--env-file $ROOT_DIR/.env"
+# Usa array + quoting: evita word-splitting su path con spazi e argomenti malformati per docker compose
+compose_env_args=()
+if [ -f "$ROOT_DIR/.env" ]; then
+    compose_env_args+=(--env-file "$ROOT_DIR/.env")
+fi
 
 # Project name compose:
 # - default: nome cartella (retrocompatibile)
@@ -98,6 +108,19 @@ fi
 
 echo "✓ Docker project name: $COMPOSE_PROJECT_NAME"
 echo "✓ INSTANCE_NAME salvata in .env per i prossimi comandi make"
+
+# Detect stale Postgres volume initialized with a different password
+VOLUME_NAME="${COMPOSE_PROJECT_NAME}_postgres_data"
+CURRENT_PASS="$(grep '^POSTGRES_PASSWORD=' .env 2>/dev/null | cut -d= -f2)"
+if docker volume ls --format '{{.Name}}' | grep -q "^${VOLUME_NAME}$" && \
+   [ "$CURRENT_PASS" = "mixtumpassword" ]; then
+    echo ""
+    echo "⚠️  ATTENZIONE: .env ha la password di default ('mixtumpassword') ma il volume"
+    echo "   '$VOLUME_NAME' esiste già — probabilmente inizializzato con una password"
+    echo "   diversa. Se ottieni errori di autenticazione Postgres, esegui:"
+    echo "   INSTANCE_NAME=${INSTANCE_NAME} make hard-rebuild"
+    echo ""
+fi
 if [ -n "$INSTANCE_NAME" ]; then
     MAKE_PREFIX="INSTANCE_NAME=${INSTANCE_NAME} "
 else
@@ -109,7 +132,7 @@ fi
 # ─────────────────────────────────────────
 echo ""
 echo "⏳ Build Docker in corso..."
-docker compose $COMPOSE_ENV $COMPOSE_FILES build
+docker compose "${compose_env_args[@]}" "${compose_files[@]}" build
 echo "✓ Build completata"
 
 # ─────────────────────────────────────────
@@ -117,10 +140,10 @@ echo "✓ Build completata"
 # ─────────────────────────────────────────
 echo ""
 echo "⏳ Avvio database e Redis..."
-docker compose $COMPOSE_ENV $COMPOSE_FILES up -d db redis
+docker compose "${compose_env_args[@]}" "${compose_files[@]}" up -d db redis
 
 echo "⏳ Attendo che il database sia pronto..."
-until docker compose $COMPOSE_ENV $COMPOSE_FILES exec -T db pg_isready -U "${POSTGRES_USER:-mixtumuser}" > /dev/null 2>&1; do
+until docker compose "${compose_env_args[@]}" "${compose_files[@]}" exec -T db pg_isready -U "${POSTGRES_USER:-mixtumuser}" > /dev/null 2>&1; do
     sleep 1
 done
 echo "✓ Database pronto"
@@ -130,7 +153,7 @@ echo "✓ Database pronto"
 # ─────────────────────────────────────────
 echo ""
 echo "⏳ Esecuzione migrations..."
-docker compose $COMPOSE_ENV $COMPOSE_FILES run --rm web python manage.py migrate
+docker compose "${compose_env_args[@]}" "${compose_files[@]}" run --rm web python manage.py migrate
 echo "✓ Migrations completate"
 
 # ─────────────────────────────────────────
@@ -154,7 +177,7 @@ fi
 echo ""
 read -p "Vuoi creare un superuser admin? (y/n) " CREATE_SUPER
 if [ "$CREATE_SUPER" = "y" ]; then
-    docker compose $COMPOSE_ENV $COMPOSE_FILES run --rm web python manage.py createsuperuser
+    docker compose "${compose_env_args[@]}" "${compose_files[@]}" run --rm web python manage.py createsuperuser
 fi
 
 # ─────────────────────────────────────────
@@ -162,7 +185,7 @@ fi
 # ─────────────────────────────────────────
 echo ""
 echo "⏳ Avvio completo del progetto..."
-docker compose $COMPOSE_ENV $COMPOSE_FILES up -d
+docker compose "${compose_env_args[@]}" "${compose_files[@]}" up -d
 
 echo ""
 echo "✅ Setup completato!"
