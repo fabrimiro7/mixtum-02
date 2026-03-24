@@ -8,7 +8,11 @@ BASE_PROJECT_NAME := $(shell basename $(CURDIR))
 # Allineato a scripts/setup.sh: solo [a-z0-9-], niente spazi (altrimenti -p si spezza nella shell)
 ENV_INSTANCE_NAME := $(shell [ -f '$(CURDIR)/.env' ] && sed -n 's/^INSTANCE_NAME=//p' '$(CURDIR)/.env' | sed -n '1p' | tr '[:upper:]' '[:lower:]' | tr -cs 'a-z0-9' '-' | sed 's/^-*//;s/-*$$//')
 INSTANCE_NAME ?= $(strip $(ENV_INSTANCE_NAME))
-COMPOSE_PROJECT_NAME ?= $(if $(strip $(INSTANCE_NAME)),$(BASE_PROJECT_NAME)-$(INSTANCE_NAME),$(BASE_PROJECT_NAME))
+# Nome progetto Docker: da COMPOSE_PROJECT_NAME (env/make) o da cartella+INSTANCE_NAME.
+# Obbligatorio normalizzare: Docker accetta solo [a-z0-9_-] (no spazi, no maiuscole).
+# Senza questo, export COMPOSE_PROJECT_NAME=... invalido in shell rompe tutti i target.
+_COMPOSE_NAME_RAW := $(if $(strip $(COMPOSE_PROJECT_NAME)),$(COMPOSE_PROJECT_NAME),$(if $(strip $(INSTANCE_NAME)),$(BASE_PROJECT_NAME)-$(INSTANCE_NAME),$(BASE_PROJECT_NAME)))
+COMPOSE_PROJECT_NAME := $(shell RAW='$(_COMPOSE_NAME_RAW)'; printf '%s' "$$RAW" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9_-]/-/g' | sed 's/--*/-/g' | sed 's/^-*//;s/-*$$//')
 
 # Percorsi assoluti quotati: ok anche se la cartella progetto ha spazi nel path
 ENV_FILE := $(CURDIR)/.env
