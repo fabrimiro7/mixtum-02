@@ -1,7 +1,12 @@
 .PHONY: setup dev dev-d prod stop update-mixtum migrate shell logs restart rebuild hard-rebuild
 
-# Project name = nome cartella, così ogni clone ha i propri container e volumi
-COMPOSE_PROJECT_NAME := $(shell basename $(CURDIR))
+# Project name compose:
+# - default: nome cartella (retrocompatibile)
+# - override 1: INSTANCE_NAME=dev2 make dev-d  -> nomecartella-dev2
+# - override 2: COMPOSE_PROJECT_NAME=custom make dev-d
+BASE_PROJECT_NAME := $(shell basename $(CURDIR))
+INSTANCE_NAME ?=
+COMPOSE_PROJECT_NAME ?= $(if $(strip $(INSTANCE_NAME)),$(BASE_PROJECT_NAME)-$(INSTANCE_NAME),$(BASE_PROJECT_NAME))
 
 # ─────────────────────────────────────────
 # SETUP

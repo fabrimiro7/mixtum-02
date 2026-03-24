@@ -76,8 +76,25 @@ fi
 COMPOSE_ENV=""
 [ -f "$ROOT_DIR/.env" ] && COMPOSE_ENV="--env-file $ROOT_DIR/.env"
 
-# Project name = nome cartella, così ogni clone ha i propri container e volumi
-export COMPOSE_PROJECT_NAME="$(basename "$ROOT_DIR")"
+# Project name compose:
+# - default: nome cartella (retrocompatibile)
+# - opzionale: suffisso istanza per avviare stack paralleli
+BASE_PROJECT_NAME="$(basename "$ROOT_DIR")"
+read -p "Nome istanza opzionale (es. dev2, lascia vuoto per default): " INSTANCE_NAME
+INSTANCE_NAME="$(echo "$INSTANCE_NAME" | tr '[:upper:]' '[:lower:]' | tr -cs 'a-z0-9' '-' | sed 's/^-*//;s/-*$//')"
+
+if [ -n "$INSTANCE_NAME" ]; then
+    export COMPOSE_PROJECT_NAME="${BASE_PROJECT_NAME}-${INSTANCE_NAME}"
+else
+    export COMPOSE_PROJECT_NAME="$BASE_PROJECT_NAME"
+fi
+
+echo "✓ Docker project name: $COMPOSE_PROJECT_NAME"
+if [ -n "$INSTANCE_NAME" ]; then
+    MAKE_PREFIX="INSTANCE_NAME=${INSTANCE_NAME} "
+else
+    MAKE_PREFIX=""
+fi
 
 # ─────────────────────────────────────────
 # 4. Docker build
@@ -147,8 +164,8 @@ echo "   Console      → http://localhost:4200"
 echo "   Admin Django → http://localhost:8000/admin"
 echo ""
 echo "   Comandi utili:"
-echo "   make dev      → avvia in foreground con logs"
-echo "   make logs     → vedi i logs"
-echo "   make shell    → shell Django"
-echo "   make migrate  → esegui migrations"
+echo "   ${MAKE_PREFIX}make dev      → avvia in foreground con logs"
+echo "   ${MAKE_PREFIX}make logs     → vedi i logs"
+echo "   ${MAKE_PREFIX}make shell    → shell Django"
+echo "   ${MAKE_PREFIX}make migrate  → esegui migrations"
 echo ""

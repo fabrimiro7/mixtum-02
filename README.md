@@ -58,6 +58,27 @@ bash scripts/setup.sh
 
 Lo script chiederà se creare un superuser e se creare la struttura per un progetto derivato.
 
+### Setup di istanze parallele (stesso progetto)
+
+Se vuoi eseguire due stack Docker distinti dello stesso progetto, durante `make setup` inserisci un nome istanza (es. `dev2`) quando richiesto.
+
+Esempio:
+
+```bash
+make setup
+# Nome istanza opzionale: dev2
+```
+
+Da quel momento usa lo stesso prefisso nei comandi `make`:
+
+```bash
+INSTANCE_NAME=dev2 make dev-d
+INSTANCE_NAME=dev2 make logs
+INSTANCE_NAME=dev2 make stop
+```
+
+Se lasci il nome istanza vuoto, il comportamento resta identico a prima (stack di default basato sul nome cartella).
+
 ### 4. Avvio successivi
 
 Con log in primo piano:
@@ -214,3 +235,9 @@ docker compose -f docker/docker-compose.yml -f docker/docker-compose.prod.yml ru
 - Il record DNS del dominio non punta al server.
 - La porta **80** non è raggiungibile da internet (richiesta per la challenge HTTP-01).
 - Con Cloudflare o altro proxy davanti al server: per la prima emissione può essere necessario usare solo DNS (no proxy) sul record.
+
+### Errore Postgres `password authentication failed for user "mixtumuser"`
+
+Questo errore in locale compare spesso quando il volume `postgres_data` era gia stato inizializzato con credenziali diverse rispetto al `POSTGRES_PASSWORD` attuale.
+
+Per evitarlo tra stack paralleli, usa un `INSTANCE_NAME` diverso per ogni istanza (cosi Docker usa risorse separate). Se invece vuoi riutilizzare una stessa istanza, mantieni coerente il valore di `POSTGRES_PASSWORD` nel suo `.env`.
