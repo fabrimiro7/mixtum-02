@@ -88,10 +88,12 @@ if [ -f "$ROOT_DIR/.env" ]; then
     compose_env_args+=(--env-file "$ROOT_DIR/.env")
 fi
 
-# Project name compose:
-# - default: nome cartella (retrocompatibile)
-# - opzionale: suffisso istanza per avviare stack paralleli
-BASE_PROJECT_NAME="$(basename "$ROOT_DIR")"
+# ─────────────────────────────────────────
+# Nome progetto Docker univoco
+# Fonte di verità → salvato in .env così tutti i make targets leggono lo stesso valore
+# senza dipendere dalla variabile COMPOSE_PROJECT_NAME della shell (che può essere "sporca").
+# ─────────────────────────────────────────
+BASE_PROJECT_NAME="$(basename "$ROOT_DIR" | tr '[:upper:]' '[:lower:]' | tr -cs 'a-z0-9' '-' | sed 's/^-*//;s/-*$//')"
 read -p "Nome istanza opzionale (es. dev2, lascia vuoto per default): " INSTANCE_NAME
 INSTANCE_NAME="$(echo "$INSTANCE_NAME" | tr '[:upper:]' '[:lower:]' | tr -cs 'a-z0-9' '-' | sed 's/^-*//;s/-*$//')"
 
@@ -102,49 +104,79 @@ else
 fi
 compose_project_args=(-p "$COMPOSE_PROJECT_NAME")
 
-# Persisti l'istanza in .env per i comandi make successivi
+# Salva COMPOSE_PROJECT_NAME in .env (fonte di verità per i make target successivi)
+if grep -q '^COMPOSE_PROJECT_NAME=' .env 2>/dev/null; then
+    sed "s|^COMPOSE_PROJECT_NAME=.*|COMPOSE_PROJECT_NAME=${COMPOSE_PROJECT_NAME}|" .env > .env.tmp && mv .env.tmp .env
+else
+    printf "\nCOMPOSE_PROJECT_NAME=%s\n" "$COMPOSE_PROJECT_NAME" >> .env
+fi
+
+# Salva anche INSTANCE_NAME per riferimento (es. nei messaggi di help)
 if grep -q '^INSTANCE_NAME=' .env 2>/dev/null; then
-    sed 's|^INSTANCE_NAME=.*|INSTANCE_NAME='"$INSTANCE_NAME"'|' .env > .env.tmp && mv .env.tmp .env
+    sed "s|^INSTANCE_NAME=.*|INSTANCE_NAME=${INSTANCE_NAME}|" .env > .env.tmp && mv .env.tmp .env
 else
     printf "\nINSTANCE_NAME=%s\n" "$INSTANCE_NAME" >> .env
 fi
 
 echo "✓ Docker project name: $COMPOSE_PROJECT_NAME"
-echo "✓ INSTANCE_NAME salvata in .env per i prossimi comandi make"
+echo "✓ COMPOSE_PROJECT_NAME salvato in .env (fonte di verità per tutti i make target)"
 
-# Postgres salva la password nel volume alla prima init: se ricrei .env con una
-# password nuova, il vecchio volume continua a usare la vecchia → auth fallita.
+# ─────────────────────────────────────────
+# Porte host: auto-detect per evitare conflitti tra istanze/progetti
+# ─────────────────────────────────────────
+find_free_port() {
+    local port=$1
+    while lsof -i tcp:"$port" > /dev/null 2>&1 || \
+          docker ps --format '{{.Ports}}' 2>/dev/null | grep -q ":${port}->"; do
+        port=$((port + 1))
+    done
+    echo "$port"
+}
+
+if [ "$CREATED_NEW_ENV" = true ]; then
+    PG_HOST_PORT=$(find_free_port 5432)
+    REDIS_HOST_PORT=$(find_free_port 6379)
+
+    sed "s|^POSTGRES_HOST_PORT=.*|POSTGRES_HOST_PORT=${PG_HOST_PORT}|" .env > .env.tmp && mv .env.tmp .env
+    sed "s|^REDIS_HOST_PORT=.*|REDIS_HOST_PORT=${REDIS_HOST_PORT}|" .env > .env.tmp && mv .env.tmp .env
+
+    if [ "$PG_HOST_PORT" != "5432" ] || [ "$REDIS_HOST_PORT" != "6379" ]; then
+        echo "ℹ️  Porte host rilevate occupate, assegnate automaticamente:"
+        echo "   Postgres → localhost:${PG_HOST_PORT}   Redis → localhost:${REDIS_HOST_PORT}"
+    else
+        echo "✓ Porte host: Postgres → localhost:5432   Redis → localhost:6379"
+    fi
+fi
+
+# ─────────────────────────────────────────
+# Verifica volume Postgres stale
+# ─────────────────────────────────────────
 if [ "$CREATED_NEW_ENV" = true ]; then
     VOL="${COMPOSE_PROJECT_NAME}_postgres_data"
     if docker volume inspect "$VOL" &>/dev/null; then
         echo "ℹ️  Fermo eventuali container che usano il vecchio database..."
         docker compose "${compose_project_args[@]}" "${compose_env_args[@]}" "${compose_files[@]}" down 2>/dev/null || true
-        echo "ℹ️  Rimuovo il volume Postgres ($VOL): .env è appena stato creato e deve"
-        echo "   allinearsi al database (password nel volume vs .env)."
+        echo "ℹ️  Rimuovo il volume Postgres ($VOL): .env è appena stato creato con una"
+        echo "   nuova password — il volume deve essere reinizializzato."
         docker volume rm "$VOL" || {
             echo "⚠️  Impossibile rimuovere il volume (forse ancora in uso). Esegui:"
-            echo "   INSTANCE_NAME=${INSTANCE_NAME} make hard-rebuild"
+            echo "   make hard-rebuild"
         }
     fi
 fi
 
-# Detect stale Postgres volume initialized with a different password
 VOLUME_NAME="${COMPOSE_PROJECT_NAME}_postgres_data"
 CURRENT_PASS="$(grep '^POSTGRES_PASSWORD=' .env 2>/dev/null | cut -d= -f2)"
 if docker volume ls --format '{{.Name}}' | grep -q "^${VOLUME_NAME}$" && \
    [ "$CURRENT_PASS" = "mixtumpassword" ]; then
     echo ""
     echo "⚠️  ATTENZIONE: .env ha la password di default ('mixtumpassword') ma il volume"
-    echo "   '$VOLUME_NAME' esiste già — probabilmente inizializzato con una password"
-    echo "   diversa. Se ottieni errori di autenticazione Postgres, esegui:"
-    echo "   INSTANCE_NAME=${INSTANCE_NAME} make hard-rebuild"
+    echo "   '$VOLUME_NAME' esiste già. Se ottieni errori di autenticazione Postgres, esegui:"
+    echo "   make hard-rebuild"
     echo ""
 fi
-if [ -n "$INSTANCE_NAME" ]; then
-    MAKE_PREFIX="INSTANCE_NAME=${INSTANCE_NAME} "
-else
-    MAKE_PREFIX=""
-fi
+
+MAKE_PREFIX=""
 
 # ─────────────────────────────────────────
 # 4. Docker build

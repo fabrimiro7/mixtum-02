@@ -4,15 +4,14 @@
 # - default: nome cartella (retrocompatibile)
 # - override 1: INSTANCE_NAME=dev2 make dev-d  -> nomecartella-dev2
 # - override 2: COMPOSE_PROJECT_NAME=custom make dev-d
-BASE_PROJECT_NAME := $(shell basename $(CURDIR))
-# Allineato a scripts/setup.sh: solo [a-z0-9-], niente spazi (altrimenti -p si spezza nella shell)
-ENV_INSTANCE_NAME := $(shell [ -f '$(CURDIR)/.env' ] && sed -n 's/^INSTANCE_NAME=//p' '$(CURDIR)/.env' | sed -n '1p' | tr '[:upper:]' '[:lower:]' | tr -cs 'a-z0-9' '-' | sed 's/^-*//;s/-*$$//')
-INSTANCE_NAME ?= $(strip $(ENV_INSTANCE_NAME))
-# Nome progetto Docker: da COMPOSE_PROJECT_NAME (env/make) o da cartella+INSTANCE_NAME.
-# Obbligatorio normalizzare: Docker accetta solo [a-z0-9_-] (no spazi, no maiuscole).
-# Senza questo, export COMPOSE_PROJECT_NAME=... invalido in shell rompe tutti i target.
-_COMPOSE_NAME_RAW := $(if $(strip $(COMPOSE_PROJECT_NAME)),$(COMPOSE_PROJECT_NAME),$(if $(strip $(INSTANCE_NAME)),$(BASE_PROJECT_NAME)-$(INSTANCE_NAME),$(BASE_PROJECT_NAME)))
-COMPOSE_PROJECT_NAME := $(shell RAW='$(_COMPOSE_NAME_RAW)'; printf '%s' "$$RAW" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9_-]/-/g' | sed 's/--*/-/g' | sed 's/^-*//;s/-*$$//')
+# COMPOSE_PROJECT_NAME: fonte di verità è .env (scritto da setup.sh).
+# ":=" + shell command sovrascrive qualsiasi variabile d'ambiente della shell,
+# eliminando il bug "COMPOSE_PROJECT_NAME=TEST MIXTUM..." che rompeva i target.
+COMPOSE_PROJECT_NAME := $(shell sed -n 's/^COMPOSE_PROJECT_NAME=//p' '$(CURDIR)/.env' 2>/dev/null | sed -n '1p' | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9_-]/-/g' | sed 's/--*/-/g' | sed 's/^-*//;s/-*$$//')
+# Fallback: se .env non esiste o non ha COMPOSE_PROJECT_NAME, usa il nome della cartella normalizzato
+ifeq ($(strip $(COMPOSE_PROJECT_NAME)),)
+COMPOSE_PROJECT_NAME := $(shell basename '$(CURDIR)' | tr '[:upper:]' '[:lower:]' | tr -cs 'a-z0-9' '-' | sed 's/^-*//;s/-*$$//')
+endif
 
 # Percorsi assoluti quotati: ok anche se la cartella progetto ha spazi nel path
 ENV_FILE := $(CURDIR)/.env
